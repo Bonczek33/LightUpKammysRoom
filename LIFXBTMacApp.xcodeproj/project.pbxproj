@@ -7,13 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		96253C7E2F32857A00E17BB2 /* LIFXBTMacAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253C7D2F32857A00E17BB2 /* LIFXBTMacAppApp.swift */; };
-		96253C802F32857A00E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253C7F2F32857A00E17BB2 /* ContentView.swift */; };
 		96253C822F32857B00E17BB2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 96253C812F32857B00E17BB2 /* Assets.xcassets */; };
 		96253C852F32857B00E17BB2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 96253C842F32857B00E17BB2 /* Preview Assets.xcassets */; };
 		96253C902F32857C00E17BB2 /* LIFXBTMacAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253C8F2F32857C00E17BB2 /* LIFXBTMacAppTests.swift */; };
 		96253C9A2F32857C00E17BB2 /* LIFXBTMacAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253C992F32857C00E17BB2 /* LIFXBTMacAppUITests.swift */; };
 		96253C9C2F32857C00E17BB2 /* LIFXBTMacAppUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253C9B2F32857C00E17BB2 /* LIFXBTMacAppUITestsLaunchTests.swift */; };
+		96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CA82F3285A500E17BB2 /* LIFXLanControl.swift */; };
+		96253CB72F3285A800E17BB2 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CAA2F3285A500E17BB2 /* Models.swift */; };
+		96253CB92F3285A800E17BB2 /* LIFXLanDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CAC2F3285A600E17BB2 /* LIFXLanDiscovery.swift */; };
+		96253CBA2F3285A800E17BB2 /* LIFXBTMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CAD2F3285A600E17BB2 /* LIFXBTMacApp.swift */; };
+		96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CAF2F3285A600E17BB2 /* Panels.swift */; };
+		96253CBD2F3285A800E17BB2 /* AutoColorController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CB02F3285A700E17BB2 /* AutoColorController.swift */; };
+		96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CB12F3285A700E17BB2 /* LightRow.swift */; };
+		96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CB22F3285A700E17BB2 /* UserConfigStore.swift */; };
+		96253CC02F3285A800E17BB2 /* Zones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CB32F3285A700E17BB2 /* Zones.swift */; };
+		96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CB42F3285A700E17BB2 /* BluetoothSensorsViewModel.swift */; };
+		96253CC32F3285E400E17BB2 /* ZwiftZonePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC22F3285E400E17BB2 /* ZwiftZonePalette.swift */; };
+		96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */; };
+		96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC62F3286A700E17BB2 /* ContentView.swift */; };
+		96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC92F32936D00E17BB2 /* WindowSizing.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,9 +46,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		96253C7A2F32857A00E17BB2 /* LIFXBTMacApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LIFXBTMacApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		96253C7D2F32857A00E17BB2 /* LIFXBTMacAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppApp.swift; sourceTree = "<group>"; };
-		96253C7F2F32857A00E17BB2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Light Up Kammys Room.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		96253C812F32857B00E17BB2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		96253C842F32857B00E17BB2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		96253C862F32857B00E17BB2 /* LIFXBTMacApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LIFXBTMacApp.entitlements; sourceTree = "<group>"; };
@@ -45,6 +55,21 @@
 		96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LIFXBTMacAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		96253C992F32857C00E17BB2 /* LIFXBTMacAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppUITests.swift; sourceTree = "<group>"; };
 		96253C9B2F32857C00E17BB2 /* LIFXBTMacAppUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		96253CA82F3285A500E17BB2 /* LIFXLanControl.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXLanControl.swift; sourceTree = "<group>"; };
+		96253CAA2F3285A500E17BB2 /* Models.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		96253CAC2F3285A600E17BB2 /* LIFXLanDiscovery.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXLanDiscovery.swift; sourceTree = "<group>"; };
+		96253CAD2F3285A600E17BB2 /* LIFXBTMacApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXBTMacApp.swift; sourceTree = "<group>"; };
+		96253CAF2F3285A600E17BB2 /* Panels.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Panels.swift; sourceTree = "<group>"; };
+		96253CB02F3285A700E17BB2 /* AutoColorController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AutoColorController.swift; sourceTree = "<group>"; };
+		96253CB12F3285A700E17BB2 /* LightRow.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LightRow.swift; sourceTree = "<group>"; };
+		96253CB22F3285A700E17BB2 /* UserConfigStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UserConfigStore.swift; sourceTree = "<group>"; };
+		96253CB32F3285A700E17BB2 /* Zones.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Zones.swift; sourceTree = "<group>"; };
+		96253CB42F3285A700E17BB2 /* BluetoothSensorsViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BluetoothSensorsViewModel.swift; sourceTree = "<group>"; };
+		96253CC22F3285E400E17BB2 /* ZwiftZonePalette.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZwiftZonePalette.swift; sourceTree = "<group>"; };
+		96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXDiscoveryViewModel.swift; sourceTree = "<group>"; };
+		96253CC62F3286A700E17BB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		96253CC92F32936D00E17BB2 /* WindowSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSizing.swift; sourceTree = "<group>"; };
+		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,7 +110,7 @@
 		96253C7B2F32857A00E17BB2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				96253C7A2F32857A00E17BB2 /* LIFXBTMacApp.app */,
+				96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */,
 				96253C8B2F32857C00E17BB2 /* LIFXBTMacAppTests.xctest */,
 				96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */,
 			);
@@ -95,8 +120,21 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
-				96253C7D2F32857A00E17BB2 /* LIFXBTMacAppApp.swift */,
-				96253C7F2F32857A00E17BB2 /* ContentView.swift */,
+				C283CE772F3EB7D800EE0F4D /* Info.plist */,
+				96253CB02F3285A700E17BB2 /* AutoColorController.swift */,
+				96253CB42F3285A700E17BB2 /* BluetoothSensorsViewModel.swift */,
+				96253CC62F3286A700E17BB2 /* ContentView.swift */,
+				96253CAD2F3285A600E17BB2 /* LIFXBTMacApp.swift */,
+				96253CA82F3285A500E17BB2 /* LIFXLanControl.swift */,
+				96253CAC2F3285A600E17BB2 /* LIFXLanDiscovery.swift */,
+				96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */,
+				96253CB12F3285A700E17BB2 /* LightRow.swift */,
+				96253CAA2F3285A500E17BB2 /* Models.swift */,
+				96253CAF2F3285A600E17BB2 /* Panels.swift */,
+				96253CB22F3285A700E17BB2 /* UserConfigStore.swift */,
+				96253CB32F3285A700E17BB2 /* Zones.swift */,
+				96253CC22F3285E400E17BB2 /* ZwiftZonePalette.swift */,
+				96253CC92F32936D00E17BB2 /* WindowSizing.swift */,
 				96253C812F32857B00E17BB2 /* Assets.xcassets */,
 				96253C862F32857B00E17BB2 /* LIFXBTMacApp.entitlements */,
 				96253C832F32857B00E17BB2 /* Preview Content */,
@@ -139,6 +177,7 @@
 				96253C762F32857A00E17BB2 /* Sources */,
 				96253C772F32857A00E17BB2 /* Frameworks */,
 				96253C782F32857A00E17BB2 /* Resources */,
+				96253CC82F3287F700E17BB2 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -146,7 +185,7 @@
 			);
 			name = LIFXBTMacApp;
 			productName = LIFXBTMacApp;
-			productReference = 96253C7A2F32857A00E17BB2 /* LIFXBTMacApp.app */;
+			productReference = 96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */;
 			productType = "com.apple.product-type.application";
 		};
 		96253C8A2F32857C00E17BB2 /* LIFXBTMacAppTests */ = {
@@ -193,7 +232,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1420;
-				LastUpgradeCheck = 1420;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					96253C792F32857A00E17BB2 = {
 						CreatedOnToolsVersion = 14.2;
@@ -254,13 +293,45 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		96253CC82F3287F700E17BB2 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n#agvtool next-version -all\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		96253C762F32857A00E17BB2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				96253C802F32857A00E17BB2 /* ContentView.swift in Sources */,
-				96253C7E2F32857A00E17BB2 /* LIFXBTMacAppApp.swift in Sources */,
+				96253CBD2F3285A800E17BB2 /* AutoColorController.swift in Sources */,
+				96253CC32F3285E400E17BB2 /* ZwiftZonePalette.swift in Sources */,
+				96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */,
+				96253CBA2F3285A800E17BB2 /* LIFXBTMacApp.swift in Sources */,
+				96253CC02F3285A800E17BB2 /* Zones.swift in Sources */,
+				96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */,
+				96253CB92F3285A800E17BB2 /* LIFXLanDiscovery.swift in Sources */,
+				96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */,
+				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
+				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
+				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
+				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,
+				96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */,
+				96253CB72F3285A800E17BB2 /* Models.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -330,9 +401,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = ZN34UP654Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -352,6 +426,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -390,9 +465,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = ZN34UP654Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -405,6 +483,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 			};
@@ -416,24 +495,43 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LIFXBTMacApp/LIFXBTMacApp.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "\"Uses Bluetooth to commnitce with TACX and HR monitor\"";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Light Up Kammys Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -443,35 +541,53 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LIFXBTMacApp/LIFXBTMacApp.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = YES;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "\"Uses Bluetooth to commnitce with TACX and HR monitor\"";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "Light Up Kammys Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
 		96253CA32F32857C00E17BB2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 12.7;
 				MARKETING_VERSION = 1.0;
@@ -486,11 +602,10 @@
 		96253CA42F32857C00E17BB2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 12.7;
 				MARKETING_VERSION = 1.0;
@@ -505,10 +620,9 @@
 		96253CA62F32857C00E17BB2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacAppUITests;
@@ -522,10 +636,9 @@
 		96253CA72F32857C00E17BB2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZN34UP654Z;
+				CURRENT_PROJECT_VERSION = 55;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacAppUITests;
