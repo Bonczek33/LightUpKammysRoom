@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var bt: BluetoothSensorsViewModel
     @StateObject private var lifx = LIFXDiscoveryViewModel()
-    @StateObject private var bt = BluetoothSensorsViewModel()
     @StateObject private var auto = AutoColorController()
     @StateObject private var store = UserConfigStore()
     @StateObject private var charts = ChartsViewModel()  // NEW: Charts view model
@@ -17,20 +17,11 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 12) {
 
-                // Layout: left BT panel, right wider LIFX panel
-                HStack(alignment: .top, spacing: 16) {
-                    BluetoothPanel(bt: bt)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                // Compact BT status bar (config moved to Settings)
+                BluetoothStatusBar(bt: bt)
 
-                    LIFXPanel(vm: lifx, store: store)
-                        .frame(
-                            minWidth: 900,
-                            idealWidth: 1040,
-                            maxWidth: 1200,
-                            alignment: .topTrailing
-                        )
-                }
-                .frame(maxWidth: .infinity)
+                LIFXPanel(vm: lifx, store: store)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
 
                 Divider()
 
@@ -50,6 +41,7 @@ struct ContentView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+        .environmentObject(bt)
         .task {
             store.load()
             auto.bind(lifx: lifx, bt: bt)

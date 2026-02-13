@@ -1,57 +1,39 @@
 import SwiftUI
 
-// MARK: - Bluetooth
+// MARK: - Bluetooth Status Bar (compact — config is in Settings)
 
-struct BluetoothPanel: View {
+struct BluetoothStatusBar: View {
     @ObservedObject var bt: BluetoothSensorsViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Text("Bluetooth Sensors").font(.headline)
-                Text("state: \(bt.btState.rawValue)")
+        HStack(spacing: 18) {
+            Label("Bluetooth", systemImage: "antenna.radiowaves.left.and.right")
+                .font(.headline)
+
+            Circle()
+                .fill(bt.btState == .poweredOn ? Color.green : Color.red)
+                .frame(width: 8, height: 8)
+
+            StatPill(title: "Heart Rate", value: bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
+            StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
+            StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("HR: \(bt.connectedHRName ?? "—")")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                Spacer()
-
-                Button("Scan") { bt.startScan() }
-                    .disabled(bt.btState != .poweredOn)
-
-                Button("Stop") { bt.stopScan() }
-                Button("Disconnect") { bt.disconnectAll() }
-            }
-
-            HStack(spacing: 18) {
-                StatPill(title: "Heart Rate", value: bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
-                StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
-                StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
-                Spacer()
-                Text(bt.status).font(.caption).foregroundColor(.secondary)
-            }
-
-            // HR candidates + Power candidates stacked vertically
-            VStack(alignment: .leading, spacing: 12) {
-                DeviceList(title: "HRM candidates", items: bt.hrCandidates) { id in
-                    bt.connectHR(id: id)
-                }
-                .frame(height: 180)
-
-                DeviceList(title: "Power (Tacx) candidates", items: bt.powerCandidates) { id in
-                    bt.connectPower(id: id)
-                }
-                .frame(height: 180)
-            }
-
-            HStack {
-                Text("Connected HR: \(bt.connectedHRName ?? "—")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text("Connected Power: \(bt.connectedPowerName ?? "—")")
+                Text("Power: \(bt.connectedPowerName ?? "—")")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+
+            Text(bt.status)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: 160, alignment: .trailing)
         }
     }
 }

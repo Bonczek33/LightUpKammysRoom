@@ -6,9 +6,11 @@ extension Notification.Name {
 
 @main
 struct LIFXBTMacApp: App {
+    @StateObject private var bt = BluetoothSensorsViewModel()
+
     var body: some Scene {
-        WindowGroup("Light Up Kammy's Room") {
-            ContentView()
+        WindowGroup("Light Up Kammys Room") {
+            ContentView(bt: bt)
         }
         // REMOVED: Duplicate Settings menu command
         // macOS automatically creates Settings menu when Settings scene exists
@@ -16,12 +18,14 @@ struct LIFXBTMacApp: App {
         #if swift(>=5.9)
         Settings {
             SettingsView()
+                .environmentObject(bt)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 600, height: 500)
+        .defaultSize(width: 600, height: 600)
         #else
         Settings {
             SettingsView()
+                .environmentObject(bt)
         }
         #endif
     }
@@ -383,55 +387,176 @@ struct GeneralSettingsTab: View {
     }
 }
 
-// MARK: - Bluetooth Settings Tab
+// MARK: - Bluetooth Settings Tab (live scan + connect)
 
 struct BluetoothSettingsTab: View {
+    @EnvironmentObject var bt: BluetoothSensorsViewModel
+
     var body: some View {
         ScrollView {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Bluetooth Settings")
-                            .font(.headline)
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Supported Devices")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Label("Heart Rate Monitors (BLE)", systemImage: "heart.fill")
-                                .foregroundColor(.pink)
-                            Text("Standard Bluetooth LE heart rate monitors using service UUID 0x180D")
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Bluetooth Sensors")
+                    .font(.headline)
+
+                // Status + controls
+                GroupBox(label: Text("Status").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(bt.btState == .poweredOn ? Color.green : Color.red)
+                                .frame(width: 10, height: 10)
+                            Text("Bluetooth: \(bt.btState.rawValue)")
+                                .font(.caption)
+                            Spacer()
+                            Text(bt.status)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
-                            Label("Power Meters (BLE)", systemImage: "bolt.fill")
-                                .foregroundColor(.orange)
-                            Text("Cycling power meters using service UUID 0x1818 (e.g., Tacx trainers)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .lineLimit(2)
                         }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Troubleshooting")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("• Make sure Bluetooth is enabled in System Settings")
-                            Text("• Sensors should be in pairing mode")
-                            Text("• Try disconnecting and reconnecting")
-                            Text("• Check sensor batteries")
+
+                        HStack(spacing: 12) {
+                            Button("Scan") { bt.startScan() }
+                                .disabled(bt.btState != .poweredOn)
+                            Button("Stop Scan") { bt.stopScan() }
+                            Button("Disconnect All") { bt.disconnectAll() }
                         }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                     }
-                    .padding()
+                    .padding(8)
+                }
+
+                // Live readings
+                GroupBox(label: Text("Live Readings").font(.subheadline)) {
+                    HStack(spacing: 18) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Heart Rate").font(.caption).foregroundColor(.secondary)
+                            Text(bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Power").font(.caption).foregroundColor(.secondary)
+                            Text(bt.powerWatts.map { "\($0) W" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cadence").font(.caption).foregroundColor(.secondary)
+                            Text(bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                }
+
+                // HR sensor
+                GroupBox(label: Text("Heart Rate Monitor").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "heart.fill").foregroundColor(.pink)
+                            Text("Connected: \(bt.connectedHRName ?? "None")")
+                                .font(.caption)
+                            Spacer()
+                        }
+
+                        if !bt.hrCandidates.isEmpty {
+                            Text("Available devices:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            ForEach(bt.hrCandidates) { item in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(item.name).font(.caption)
+                                        Text("RSSI \(item.rssi)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("Connect") { bt.connectHR(id: item.id) }
+                                        .controlSize(.small)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        } else {
+                            Text("No HR devices found. Tap Scan to search.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(8)
+                }
+
+                // Power sensor
+                GroupBox(label: Text("Power Meter").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "bolt.fill").foregroundColor(.orange)
+                            Text("Connected: \(bt.connectedPowerName ?? "None")")
+                                .font(.caption)
+                            Spacer()
+                        }
+
+                        if !bt.powerCandidates.isEmpty {
+                            Text("Available devices:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            ForEach(bt.powerCandidates) { item in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(item.name).font(.caption)
+                                        Text("RSSI \(item.rssi)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Button("Connect") { bt.connectPower(id: item.id) }
+                                        .controlSize(.small)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        } else {
+                            Text("No power devices found. Tap Scan to search.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(8)
+                }
+
+                Divider()
+
+                // Troubleshooting info
+                GroupBox(label: Text("Troubleshooting").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Heart Rate Monitors (BLE)", systemImage: "heart.fill")
+                            .foregroundColor(.pink)
+                        Text("Standard Bluetooth LE heart rate monitors using service UUID 0x180D")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Label("Power Meters (BLE)", systemImage: "bolt.fill")
+                            .foregroundColor(.orange)
+                        Text("Cycling power meters using service UUID 0x1818 (e.g., Tacx trainers)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Divider()
+
+                        Text("Tips:")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Make sure Bluetooth is enabled in System Settings")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Sensors should be in pairing mode")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Try disconnecting and reconnecting")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Check sensor batteries")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    .padding(8)
                 }
             }
+            .padding()
         }
     }
 }
