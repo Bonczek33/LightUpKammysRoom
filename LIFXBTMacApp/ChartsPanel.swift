@@ -174,19 +174,6 @@ struct ChartsPanel: View {
                     )
                     .foregroundStyle(Color.red.gradient)
                     .interpolationMethod(.catmullRom)
-                    
-                    AreaMark(
-                        x: .value("Time", point.timestamp),
-                        y: .value("HR", point.value)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.red.opacity(0.3), Color.red.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.heartRateRange)
                 .chartXAxis {
