@@ -9,7 +9,7 @@ struct LIFXBTMacApp: App {
     @StateObject private var bt = BluetoothSensorsViewModel()
 
     var body: some Scene {
-        WindowGroup("Light Up Kammys Room") {
+        WindowGroup("Light Up Kammy's Room") {
             ContentView(bt: bt)
         }
         // REMOVED: Duplicate Settings menu command
@@ -391,12 +391,119 @@ struct GeneralSettingsTab: View {
 
 struct BluetoothSettingsTab: View {
     @EnvironmentObject var bt: BluetoothSensorsViewModel
+    @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
+
+    @State private var autoReconnect: Bool = true
+    @State private var savedHRName: String? = nil
+    @State private var savedPowerName: String? = nil
+
+    private func loadBTSettings() {
+        guard let data = configData,
+              let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        autoReconnect = decoded.btAutoReconnect ?? true
+        savedHRName = decoded.lastHRPeripheralName
+        savedPowerName = decoded.lastPowerPeripheralName
+    }
+
+    private func saveBTAutoReconnect(_ value: Bool) {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.btAutoReconnect = value
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func clearSavedDevices() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.lastHRPeripheralID = nil
+        decoded.lastHRPeripheralName = nil
+        decoded.lastPowerPeripheralID = nil
+        decoded.lastPowerPeripheralName = nil
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        savedHRName = nil
+        savedPowerName = nil
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func saveCurrentDevices() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        
+        // Snapshot whatever is currently connected
+        if let hrName = bt.connectedHRName, let hrPeriphID = bt.connectedHRPeripheralID {
+            decoded.lastHRPeripheralID = hrPeriphID
+            decoded.lastHRPeripheralName = hrName
+            savedHRName = hrName
+        }
+        if let pwrName = bt.connectedPowerName, let pwrPeriphID = bt.connectedPowerPeripheralID {
+            decoded.lastPowerPeripheralID = pwrPeriphID
+            decoded.lastPowerPeripheralName = pwrName
+            savedPowerName = pwrName
+        }
+        
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Bluetooth Sensors")
                     .font(.headline)
+
+                // Auto-reconnect settings
+                GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Automatically reconnect to last used sensors on app start", isOn: $autoReconnect)
+                            .toggleStyle(.switch)
+                            .onChange(of: autoReconnect) { _, newValue in
+                                saveBTAutoReconnect(newValue)
+                            }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
+                                Text("Saved HR: \(savedHRName ?? "None")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 6) {
+                                Image(systemName: "bolt.fill").foregroundColor(.orange).font(.caption)
+                                Text("Saved Power: \(savedPowerName ?? "None")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        HStack(spacing: 12) {
+                            Button("Save Current Devices") {
+                                saveCurrentDevices()
+                            }
+                            .disabled(bt.connectedHRName == nil && bt.connectedPowerName == nil)
+                            .controlSize(.small)
+
+                            if savedHRName != nil || savedPowerName != nil {
+                                Button("Forget Saved Devices") {
+                                    clearSavedDevices()
+                                }
+                                .foregroundColor(.red)
+                                .controlSize(.small)
+                            }
+                        }
+
+                        Text("Connect your sensors, then tap \"Save Current Devices\" to remember them for automatic reconnection.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
 
                 // Status + controls
                 GroupBox(label: Text("Status").font(.subheadline)) {
@@ -419,6 +526,29 @@ struct BluetoothSettingsTab: View {
                                 .disabled(bt.btState != .poweredOn)
                             Button("Stop Scan") { bt.stopScan() }
                             Button("Disconnect All") { bt.disconnectAll() }
+                        }
+
+                        // Retry status
+                        if bt.isRetryingHR || bt.isRetryingPower {
+                            Divider()
+                            VStack(alignment: .leading, spacing: 4) {
+                                if bt.isRetryingHR {
+                                    HStack(spacing: 6) {
+                                        ProgressView().controlSize(.small)
+                                        Text("Retrying HR connection (\(bt.hrRetryCount)/5)…")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                                if bt.isRetryingPower {
+                                    HStack(spacing: 6) {
+                                        ProgressView().controlSize(.small)
+                                        Text("Retrying Power connection (\(bt.powerRetryCount)/5)…")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(8)
@@ -558,6 +688,7 @@ struct BluetoothSettingsTab: View {
             }
             .padding()
         }
+        .onAppear { loadBTSettings() }
     }
 }
 

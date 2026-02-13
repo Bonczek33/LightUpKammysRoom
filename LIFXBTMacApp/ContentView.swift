@@ -48,6 +48,28 @@ struct ContentView: View {
             charts.bind(bt: bt)  // NEW: Bind charts to BT data
             applyStore()
             
+            // Remember connected devices for auto-reconnect
+            bt.onDeviceConnected = { [weak store] id, name, isHR, isPower in
+                guard let store else { return }
+                if isHR {
+                    store.lastHRPeripheralID = id
+                    store.lastHRPeripheralName = name
+                }
+                if isPower {
+                    store.lastPowerPeripheralID = id
+                    store.lastPowerPeripheralName = name
+                }
+                store.save()
+            }
+            
+            // Auto-reconnect to last known devices
+            if store.btAutoReconnect {
+                bt.autoReconnect(
+                    hrUUID: store.lastHRPeripheralID,
+                    powerUUID: store.lastPowerPeripheralID
+                )
+            }
+            
             // Listen for settings changes from Settings window
             NotificationCenter.default.addObserver(
                 forName: .settingsDidChange,

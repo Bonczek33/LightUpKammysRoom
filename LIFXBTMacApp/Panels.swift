@@ -18,6 +18,15 @@ struct BluetoothStatusBar: View {
             StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
             StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
 
+            if bt.isRetryingHR || bt.isRetryingPower {
+                HStack(spacing: 4) {
+                    ProgressView().controlSize(.small)
+                    Text(retryLabel)
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
@@ -35,6 +44,13 @@ struct BluetoothStatusBar: View {
                 .lineLimit(1)
                 .frame(maxWidth: 160, alignment: .trailing)
         }
+    }
+
+    private var retryLabel: String {
+        var parts: [String] = []
+        if bt.isRetryingHR { parts.append("HR \(bt.hrRetryCount)/5") }
+        if bt.isRetryingPower { parts.append("Pwr \(bt.powerRetryCount)/5") }
+        return "Retrying " + parts.joined(separator: ", ")
     }
 }
 

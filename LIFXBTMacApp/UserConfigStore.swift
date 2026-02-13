@@ -13,6 +13,13 @@ struct PersistedUserConfig: Codable {
     var modulateIntensityWithHR: Bool
     var minIntensityPercent: Double
     var maxIntensityPercent: Double
+    
+    // Bluetooth auto-reconnect
+    var btAutoReconnect: Bool?            // nil for migration from older configs
+    var lastHRPeripheralID: String?       // UUID string of last connected HR device
+    var lastHRPeripheralName: String?     // Display name for UI
+    var lastPowerPeripheralID: String?    // UUID string of last connected Power device
+    var lastPowerPeripheralName: String?  // Display name for UI
 }
 
 @MainActor
@@ -28,9 +35,10 @@ final class UserConfigStore: ObservableObject {
     static let defaultsFTP = 150
     static let defaultsWeightKg: Double = 50.0
     static let defaultsPowerMovingAverageSeconds: Double = 2.0
-    static let defaultsModulateIntensityWithHR: Bool = false
+    static let defaultsModulateIntensityWithHR: Bool = true
     static let defaultsMinIntensityPercent: Double = 10.0
     static let defaultsMaxIntensityPercent: Double = 100.0
+    static let defaultsBTAutoReconnect: Bool = true
 
     // bump key because schema changed
     private let key = "lifx_bt_tacx_user_config_v9"
@@ -45,6 +53,12 @@ final class UserConfigStore: ObservableObject {
     @Published var modulateIntensityWithHR: Bool = defaultsModulateIntensityWithHR
     @Published var minIntensityPercent: Double = defaultsMinIntensityPercent
     @Published var maxIntensityPercent: Double = defaultsMaxIntensityPercent
+    
+    @Published var btAutoReconnect: Bool = defaultsBTAutoReconnect
+    @Published var lastHRPeripheralID: String? = nil
+    @Published var lastHRPeripheralName: String? = nil
+    @Published var lastPowerPeripheralID: String? = nil
+    @Published var lastPowerPeripheralName: String? = nil
 
     func load() {
         guard let data = UserDefaults.standard.data(forKey: key) else { return }
@@ -58,6 +72,11 @@ final class UserConfigStore: ObservableObject {
             modulateIntensityWithHR = decoded.modulateIntensityWithHR
             minIntensityPercent = decoded.minIntensityPercent
             maxIntensityPercent = decoded.maxIntensityPercent
+            btAutoReconnect = decoded.btAutoReconnect ?? Self.defaultsBTAutoReconnect
+            lastHRPeripheralID = decoded.lastHRPeripheralID
+            lastHRPeripheralName = decoded.lastHRPeripheralName
+            lastPowerPeripheralID = decoded.lastPowerPeripheralID
+            lastPowerPeripheralName = decoded.lastPowerPeripheralName
         }
     }
 
@@ -71,7 +90,12 @@ final class UserConfigStore: ObservableObject {
             aliasesByID: aliasesByID,
             modulateIntensityWithHR: modulateIntensityWithHR,
             minIntensityPercent: minIntensityPercent,
-            maxIntensityPercent: maxIntensityPercent
+            maxIntensityPercent: maxIntensityPercent,
+            btAutoReconnect: btAutoReconnect,
+            lastHRPeripheralID: lastHRPeripheralID,
+            lastHRPeripheralName: lastHRPeripheralName,
+            lastPowerPeripheralID: lastPowerPeripheralID,
+            lastPowerPeripheralName: lastPowerPeripheralName
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: key)
@@ -88,6 +112,11 @@ final class UserConfigStore: ObservableObject {
         modulateIntensityWithHR = Self.defaultsModulateIntensityWithHR
         minIntensityPercent = Self.defaultsMinIntensityPercent
         maxIntensityPercent = Self.defaultsMaxIntensityPercent
+        btAutoReconnect = Self.defaultsBTAutoReconnect
+        lastHRPeripheralID = nil
+        lastHRPeripheralName = nil
+        lastPowerPeripheralID = nil
+        lastPowerPeripheralName = nil
         save()
     }
 }
