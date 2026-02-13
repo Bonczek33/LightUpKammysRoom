@@ -10,8 +10,27 @@ final class LIFXLanControl {
     private var source: UInt32 = .random(in: 1...UInt32.max)
     private var seq: UInt8 = 0
 
+    // FIXED: Connection pooling for better performance
+    private let connectionLock = NSLock()
+    private var connectionPool: [String: NWConnection] = [:] // Key: IP address
+    private let maxPoolSize = 10
+    private let connectionTimeout: TimeInterval = 5.0
+    
+    deinit {
+        // Clean up all pooled connections
+        connectionLock.lock()
+        for (_, conn) in connectionPool {
+            conn.cancel()
+        }
+        connectionPool.removeAll()
+        connectionLock.unlock()
+    }
+
     func getLightState(ip: String, targetHex: String, timeoutSeconds: Double = 1.0) async -> LightState? {
-        guard let target = dataFromHex8(targetHex) else { return nil }
+        guard let target = dataFromHex8(targetHex) else { 
+            print("❌ [LIFX Control] Invalid target hex: \(targetHex)")
+            return nil 
+        }
 
         let packet = makePacket(tagged: false, target: target, type: 101, payload: Data())
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(ip), port: lifxPort)
@@ -19,18 +38,34 @@ final class LIFXLanControl {
         let conn = NWConnection(to: endpoint, using: .udp)
         conn.start(queue: queue)
 
+        // Send request
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            conn.send(content: packet, completion: .contentProcessed { _ in cont.resume() })
+            conn.send(content: packet, completion: .contentProcessed { error in
+                if let error {
+                    print("❌ [LIFX Control] Failed to send state request to \(ip): \(error)")
+                }
+                cont.resume()
+            })
         }
 
+        // Wait for response with timeout
         let data: Data? = await withTaskGroup(of: Data?.self) { group in
             group.addTask {
                 await withCheckedContinuation { (cont: CheckedContinuation<Data?, Never>) in
-                    conn.receiveMessage { data, _, _, _ in cont.resume(returning: data) }
+                    conn.receiveMessage { data, _, _, error in
+                        if let error {
+                            print("❌ [LIFX Control] Receive error from \(ip): \(error)")
+                        }
+                        cont.resume(returning: data)
+                    }
                 }
             }
             group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(timeoutSeconds * 1_000_000_000))
+                } catch {
+                    // Timeout task was cancelled (we got a response first)
+                }
                 return nil
             }
             let first = await group.next() ?? nil
@@ -40,12 +75,26 @@ final class LIFXLanControl {
 
         conn.cancel()
 
-        guard let reply = data, reply.count >= 36 else { return nil }
+        guard let reply = data, reply.count >= 36 else { 
+            if data == nil {
+                print("⚠️ [LIFX Control] Timeout waiting for state from \(ip)")
+            } else {
+                print("⚠️ [LIFX Control] Invalid state response from \(ip)")
+            }
+            return nil 
+        }
+        
         let type = readUInt16LE(reply, offset: 32)
-        guard type == 107 else { return nil } // Light.State
+        guard type == 107 else { 
+            print("⚠️ [LIFX Control] Unexpected packet type \(type) from \(ip), expected 107 (Light.State)")
+            return nil 
+        }
 
         let o = 36
-        guard reply.count >= o + 12 else { return nil }
+        guard reply.count >= o + 12 else { 
+            print("⚠️ [LIFX Control] State packet too short from \(ip)")
+            return nil 
+        }
 
         let hueU16 = readUInt16LE(reply, offset: o + 0)
         let satU16 = readUInt16LE(reply, offset: o + 2)
@@ -64,17 +113,23 @@ final class LIFXLanControl {
     }
 
     func setPower(ip: String, targetHex: String, on: Bool, durationMs: UInt32 = 0) {
-        guard let target = dataFromHex8(targetHex) else { return }
+        guard let target = dataFromHex8(targetHex) else { 
+            print("❌ [LIFX Control] Invalid target hex for setPower: \(targetHex)")
+            return 
+        }
         let level: UInt16 = on ? 65535 : 0
         var payload = Data()
         payload.append(withBytes(level.littleEndian))
         payload.append(withBytes(durationMs.littleEndian))
         let packet = makePacket(tagged: false, target: target, type: 117, payload: payload)
-        send(toIP: ip, packet: packet)
+        sendFast(toIP: ip, packet: packet)
     }
 
     func setColor(ip: String, targetHex: String, color: LIFXColor, durationMs: UInt32 = 0) {
-        guard let target = dataFromHex8(targetHex) else { return }
+        guard let target = dataFromHex8(targetHex) else { 
+            print("❌ [LIFX Control] Invalid target hex for setColor: \(targetHex)")
+            return 
+        }
         var payload = Data()
         payload.append(UInt8(0))
         payload.append(withBytes(color.hueU16.littleEndian))
@@ -83,14 +138,67 @@ final class LIFXLanControl {
         payload.append(withBytes(color.kelvin.littleEndian))
         payload.append(withBytes(durationMs.littleEndian))
         let packet = makePacket(tagged: false, target: target, type: 102, payload: payload)
-        send(toIP: ip, packet: packet)
+        sendFast(toIP: ip, packet: packet)
     }
 
-    private func send(toIP ip: String, packet: Data) {
+    // FIXED: Optimized send that reuses connections for rapid updates
+    private func sendFast(toIP ip: String, packet: Data) {
+        connectionLock.lock()
+        
+        // Try to reuse existing connection
+        if let existingConn = connectionPool[ip],
+           existingConn.state == .ready {
+            connectionLock.unlock()
+            
+            existingConn.send(content: packet, completion: .contentProcessed { error in
+                if let error {
+                    print("❌ [LIFX Control] Send failed to \(ip): \(error)")
+                }
+            })
+            return
+        }
+        
+        // Create new connection
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(ip), port: lifxPort)
         let conn = NWConnection(to: endpoint, using: .udp)
+        
+        // Limit pool size
+        if connectionPool.count >= maxPoolSize, let firstKey = connectionPool.keys.first {
+            connectionPool[firstKey]?.cancel()
+            connectionPool.removeValue(forKey: firstKey)
+        }
+        
+        connectionPool[ip] = conn
+        connectionLock.unlock()
+        
+        conn.stateUpdateHandler = { [weak self] state in
+            if case .failed(let error) = state {
+                print("❌ [LIFX Control] Connection to \(ip) failed: \(error)")
+                self?.removeFromPool(ip: ip)
+            }
+        }
+        
         conn.start(queue: queue)
-        conn.send(content: packet, completion: .contentProcessed { _ in conn.cancel() })
+        
+        // Send packet
+        conn.send(content: packet, completion: .contentProcessed { error in
+            if let error {
+                print("❌ [LIFX Control] Send failed to \(ip): \(error)")
+            }
+        })
+        
+        // Set up timeout to clean up stale connections
+        queue.asyncAfter(deadline: .now() + connectionTimeout) { [weak self] in
+            self?.removeFromPool(ip: ip)
+        }
+    }
+    
+    private func removeFromPool(ip: String) {
+        connectionLock.lock()
+        if let conn = connectionPool.removeValue(forKey: ip) {
+            conn.cancel()
+        }
+        connectionLock.unlock()
     }
 
     private func makePacket(tagged: Bool, target: Data, type: UInt16, payload: Data) -> Data {

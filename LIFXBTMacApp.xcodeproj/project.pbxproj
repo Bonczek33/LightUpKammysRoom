@@ -26,6 +26,8 @@
 		96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */; };
 		96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC62F3286A700E17BB2 /* ContentView.swift */; };
 		96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC92F32936D00E17BB2 /* WindowSizing.swift */; };
+		C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */; };
+		C26837602F3FA95F00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +71,8 @@
 		96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXDiscoveryViewModel.swift; sourceTree = "<group>"; };
 		96253CC62F3286A700E17BB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		96253CC92F32936D00E17BB2 /* WindowSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSizing.swift; sourceTree = "<group>"; };
+		C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsPanel.swift; sourceTree = "<group>"; };
+		C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsViewModel.swift; sourceTree = "<group>"; };
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -120,6 +124,8 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
+				C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */,
 				C283CE772F3EB7D800EE0F4D /* Info.plist */,
 				96253CB02F3285A700E17BB2 /* AutoColorController.swift */,
 				96253CB42F3285A700E17BB2 /* BluetoothSensorsViewModel.swift */,
@@ -319,8 +325,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				96253CBD2F3285A800E17BB2 /* AutoColorController.swift in Sources */,
+				C26837602F3FA95F00A43AE6 /* ChartsViewModel.swift in Sources */,
 				96253CC32F3285E400E17BB2 /* ZwiftZonePalette.swift in Sources */,
 				96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */,
+				C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */,
 				96253CBA2F3285A800E17BB2 /* LIFXBTMacApp.swift in Sources */,
 				96253CC02F3285A800E17BB2 /* Zones.swift in Sources */,
 				96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */,
@@ -498,7 +506,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 55;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
@@ -519,14 +527,15 @@
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "\"Uses Bluetooth to commnitce with TACX and HR monitor\"";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs local network access to discover and control LIFX lights on your network.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
 				PRODUCT_NAME = "Light Up Kammys Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -544,7 +553,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 55;
+				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
 				ENABLE_APP_SANDBOX = YES;
@@ -565,14 +574,15 @@
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "\"Uses Bluetooth to commnitce with TACX and HR monitor\"";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs local network access to discover and control LIFX lights on your network.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
 				PRODUCT_NAME = "Light Up Kammys Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;

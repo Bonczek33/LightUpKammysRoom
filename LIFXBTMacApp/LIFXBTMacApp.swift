@@ -10,19 +10,8 @@ struct LIFXBTMacApp: App {
         WindowGroup("Light Up Kammys Room") {
             ContentView()
         }
-        .commands {
-            CommandGroup(after: .appInfo) {
-                Button("Settings...") {
-                    // Open Settings window
-                    if #available(macOS 14, *) {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    } else {
-                        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-                    }
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
-        }
+        // REMOVED: Duplicate Settings menu command
+        // macOS automatically creates Settings menu when Settings scene exists
         
         #if swift(>=5.9)
         Settings {
@@ -83,6 +72,7 @@ struct GeneralSettingsTab: View {
     @State private var modulateIntensityWithHR: Bool = UserConfigStore.defaultsModulateIntensityWithHR
     @State private var minIntensityPercent: Double = UserConfigStore.defaultsMinIntensityPercent
     @State private var maxIntensityPercent: Double = UserConfigStore.defaultsMaxIntensityPercent
+    @State private var powerMovingAverageSeconds: Double = UserConfigStore.defaultsPowerMovingAverageSeconds
     
     let intFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -106,30 +96,6 @@ struct GeneralSettingsTab: View {
     
     var maxHR: Int { max(80, 220 - ageYears) }
     
-    private func loadPowerSmoothing() -> Double {
-        guard let data = configData,
-              let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else {
-            return UserConfigStore.defaultsPowerMovingAverageSeconds
-        }
-        return decoded.powerMovingAverageSeconds
-    }
-    
-    private func savePowerSmoothing(_ value: Double) {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else {
-            return
-        }
-        
-        decoded.powerMovingAverageSeconds = max(0.0, min(5.0, value))
-        
-        if let encoded = try? JSONEncoder().encode(decoded) {
-            configData = encoded
-        }
-        
-        // Notify main app to reload settings
-        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-    }
-    
     private func loadSettings() {
         guard let data = configData,
               let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else {
@@ -141,26 +107,60 @@ struct GeneralSettingsTab: View {
         modulateIntensityWithHR = decoded.modulateIntensityWithHR
         minIntensityPercent = decoded.minIntensityPercent
         maxIntensityPercent = decoded.maxIntensityPercent
+        powerMovingAverageSeconds = decoded.powerMovingAverageSeconds
     }
     
     private func saveSettings() {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else {
-            return
-        }
+        // Create config with current values
+        let config = PersistedUserConfig(
+            dateOfBirth: dateOfBirth,
+            ftp: max(50, min(500, ftp)),
+            weightKg: max(30.0, min(200.0, weightKg)),
+            autoSourceRaw: "Off", // Will be loaded from main app
+            powerMovingAverageSeconds: max(0.0, min(10.0, powerMovingAverageSeconds)),
+            aliasesByID: [:], // Will be merged from main app
+            modulateIntensityWithHR: modulateIntensityWithHR,
+            minIntensityPercent: max(0.0, min(100.0, minIntensityPercent)),
+            maxIntensityPercent: max(0.0, min(100.0, maxIntensityPercent))
+        )
         
-        decoded.dateOfBirth = dateOfBirth
-        decoded.ftp = max(50, min(500, ftp)) // Clamp FTP
-        decoded.weightKg = max(30.0, min(200.0, weightKg)) // Clamp weight
-        decoded.modulateIntensityWithHR = modulateIntensityWithHR
-        decoded.minIntensityPercent = max(0.0, min(100.0, minIntensityPercent))
-        decoded.maxIntensityPercent = max(0.0, min(100.0, maxIntensityPercent))
-        
-        if let encoded = try? JSONEncoder().encode(decoded) {
+        if let encoded = try? JSONEncoder().encode(config) {
             configData = encoded
         }
         
         // Notify main app to reload settings
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+    
+    // FIXED: Proper reset implementation
+    private func resetToDefaults() {
+        // Reset all state variables to defaults
+        dateOfBirth = UserConfigStore.defaultsDOB
+        ftp = UserConfigStore.defaultsFTP
+        weightKg = UserConfigStore.defaultsWeightKg
+        modulateIntensityWithHR = UserConfigStore.defaultsModulateIntensityWithHR
+        minIntensityPercent = UserConfigStore.defaultsMinIntensityPercent
+        maxIntensityPercent = UserConfigStore.defaultsMaxIntensityPercent
+        powerMovingAverageSeconds = UserConfigStore.defaultsPowerMovingAverageSeconds
+        
+        // Create default config
+        let config = PersistedUserConfig(
+            dateOfBirth: UserConfigStore.defaultsDOB,
+            ftp: UserConfigStore.defaultsFTP,
+            weightKg: UserConfigStore.defaultsWeightKg,
+            autoSourceRaw: "Off",
+            powerMovingAverageSeconds: UserConfigStore.defaultsPowerMovingAverageSeconds,
+            aliasesByID: [:],
+            modulateIntensityWithHR: UserConfigStore.defaultsModulateIntensityWithHR,
+            minIntensityPercent: UserConfigStore.defaultsMinIntensityPercent,
+            maxIntensityPercent: UserConfigStore.defaultsMaxIntensityPercent
+        )
+        
+        if let encoded = try? JSONEncoder().encode(config) {
+            configData = encoded
+        }
+        
+        // Notify main app
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
     
@@ -282,9 +282,10 @@ struct GeneralSettingsTab: View {
                                                 .frame(width: 40, alignment: .trailing)
                                         }
                                         
-                                        Text("Brightness ranges from \(Int(minIntensityPercent))% at the bottom of each zone to \(Int(maxIntensityPercent))% at the top of each zone based on HR.")
+                                        Text("Light brightness will vary between \(Int(minIntensityPercent))% and \(Int(maxIntensityPercent))% based on your heart rate within each power zone.")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
+                                            .italic()
                                     }
                                 }
                             }
@@ -304,13 +305,10 @@ struct GeneralSettingsTab: View {
                                     Text("Smoothing Window:")
                                         .frame(width: 120, alignment: .trailing)
                                     
-                                    Slider(value: Binding(
-                                        get: { self.loadPowerSmoothing() },
-                                        set: { self.savePowerSmoothing($0) }
-                                    ), in: 0...5, step: 0.25)
+                                    Slider(value: $powerMovingAverageSeconds, in: 0...5, step: 0.25)
                                         .frame(width: 200)
                                     
-                                    Text(String(format: "%.2fs", self.loadPowerSmoothing()))
+                                    Text(String(format: "%.2fs", powerMovingAverageSeconds))
                                         .font(.caption)
                                         .monospacedDigit()
                                         .foregroundColor(.secondary)
@@ -351,7 +349,7 @@ struct GeneralSettingsTab: View {
                             }
                             .foregroundColor(.red)
                             
-                            Text("This will reset your FTP, DOB, weight, power smoothing, and all light aliases.")
+                            Text("This will reset your FTP, DOB, weight, power smoothing, and intensity settings to defaults.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -360,11 +358,6 @@ struct GeneralSettingsTab: View {
                         
                         HStack {
                             Spacer()
-                            
-                            Button("Apply Settings") {
-                                saveSettings()
-                            }
-                            .keyboardShortcut(.defaultAction)
                             
                             Button("Save Settings") {
                                 saveSettings()
@@ -381,12 +374,10 @@ struct GeneralSettingsTab: View {
             .alert("Reset All Settings?", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
-                    configData = nil
-                    // Force quit to reload
-                    NSApplication.shared.terminate(nil)
+                    resetToDefaults()
                 }
             } message: {
-                Text("All settings will be reset to defaults. The app will quit and you'll need to relaunch it.")
+                Text("All settings will be reset to defaults. Changes will take effect immediately.")
             }
         }
     }

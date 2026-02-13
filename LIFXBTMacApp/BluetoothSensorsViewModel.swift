@@ -98,32 +98,47 @@ final class BluetoothSensorsViewModel: NSObject, ObservableObject {
 
     private func parseHeartRate(from data: Data) -> Int? {
         // 0x2A37 Heart Rate Measurement
-        guard data.count >= 2 else { return nil }
+        guard data.count >= 2 else { 
+            print("⚠️ [BLE HR] Packet too short: \(data.count) bytes")
+            return nil 
+        }
         let flags = data[0]
         let isUInt16 = (flags & 0x01) != 0
         if !isUInt16 { return Int(data[1]) }
-        guard data.count >= 3 else { return nil }
+        guard data.count >= 3 else { 
+            print("⚠️ [BLE HR] UInt16 format but packet too short")
+            return nil 
+        }
         let v = UInt16(data[1]) | (UInt16(data[2]) << 8)
         return Int(v)
     }
 
     private func parseInstantPower(from data: Data) -> Int? {
         // 0x2A63 Cycling Power Measurement: flags(2) + instantaneous power(sint16)
-        guard data.count >= 4 else { return nil }
+        guard data.count >= 4 else { 
+            print("⚠️ [BLE Power] Packet too short: \(data.count) bytes")
+            return nil 
+        }
         let raw = Int16(bitPattern: UInt16(data[2]) | (UInt16(data[3]) << 8))
         return Int(raw)
     }
     
     private func parseCadence(from data: Data) -> Int? {
         // 0x2A63 Cycling Power Measurement
-        guard data.count >= 2 else { return nil }
+        guard data.count >= 2 else { 
+            print("⚠️ [BLE Cadence] Packet too short: \(data.count) bytes")
+            return nil 
+        }
         
         let flags = UInt16(data[0]) | (UInt16(data[1]) << 8)
         
         // Bit 5: Crank Revolution Data Present
         let hasCrankData = (flags & 0x0020) != 0
         
-        guard hasCrankData else { return nil }
+        guard hasCrankData else { 
+            // No crank data in this packet - not an error, just not available
+            return nil 
+        }
         
         // Calculate offset: skip flags(2) + power(2) + optional fields before crank data
         var offset = 4  // flags(2) + power(2)
@@ -139,7 +154,10 @@ final class BluetoothSensorsViewModel: NSObject, ObservableObject {
         
         // Now we should be at Crank Revolution Data
         // Format: Cumulative Crank Revolutions (uint16) + Last Crank Event Time (uint16)
-        guard data.count >= offset + 4 else { return nil }
+        guard data.count >= offset + 4 else { 
+            print("⚠️ [BLE Cadence] Packet too short for crank data: \(data.count) bytes, need \(offset + 4)")
+            return nil 
+        }
         
         let crankRevs = UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
         let crankTime = UInt16(data[offset + 2]) | (UInt16(data[offset + 3]) << 8)
@@ -149,6 +167,13 @@ final class BluetoothSensorsViewModel: NSObject, ObservableObject {
             // Handle wrap-around for UInt16
             let revDelta = crankRevs &- prevRevs  // Wrapping subtraction
             let timeDelta = crankTime &- prevTime  // Time in 1/1024 seconds
+            
+            // If no revolutions happened, cadence is 0
+            if revDelta == 0 {
+                lastCrankRevs = crankRevs
+                lastCrankTime = crankTime
+                return 0
+            }
             
             // Only calculate if we have a reasonable time delta (> 0 and < 5 seconds)
             if timeDelta > 0 && timeDelta < 5120 {  // 5 seconds = 5 * 1024
@@ -165,7 +190,11 @@ final class BluetoothSensorsViewModel: NSObject, ObservableObject {
                 // Sanity check: cadence should be 0-250 RPM
                 if cadence >= 0 && cadence <= 250 {
                     return Int(cadence.rounded())
+                } else {
+                    print("⚠️ [BLE Cadence] Calculated cadence out of range: \(cadence) RPM")
                 }
+            } else {
+                print("⚠️ [BLE Cadence] Time delta out of range: \(timeDelta)")
             }
         }
         
@@ -233,11 +262,20 @@ extension BluetoothSensorsViewModel: @preconcurrency CBCentralManagerDelegate, @
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        status = "Failed to connect: \(peripheral.nameOrUnknown) \(error?.localizedDescription ?? "")"
+        let errorMsg = error?.localizedDescription ?? "Unknown error"
+        status = "Failed to connect: \(peripheral.nameOrUnknown) - \(errorMsg)"
+        print("❌ [BLE] Connection failed: \(peripheral.nameOrUnknown) - \(errorMsg)")
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        status = "Disconnected: \(peripheral.nameOrUnknown)"
+        if let error {
+            status = "Disconnected: \(peripheral.nameOrUnknown) - \(error.localizedDescription)"
+            print("❌ [BLE] Disconnected with error: \(peripheral.nameOrUnknown) - \(error.localizedDescription)")
+        } else {
+            status = "Disconnected: \(peripheral.nameOrUnknown)"
+            print("ℹ️ [BLE] Clean disconnect: \(peripheral.nameOrUnknown)")
+        }
+        
         if peripheral.identifier == hrPeripheral?.identifier {
             hrPeripheral = nil; connectedHRName = nil; heartRateBPM = nil
         }
@@ -248,7 +286,11 @@ extension BluetoothSensorsViewModel: @preconcurrency CBCentralManagerDelegate, @
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        if let error { status = "Service discovery error: \(error.localizedDescription)"; return }
+        if let error { 
+            status = "Service discovery error: \(error.localizedDescription)"
+            print("❌ [BLE] Service discovery failed: \(error.localizedDescription)")
+            return 
+        }
         for s in peripheral.services ?? [] {
             if s.uuid == .heartRateService {
                 peripheral.discoverCharacteristics([.hrMeasurement], for: s)
@@ -259,27 +301,57 @@ extension BluetoothSensorsViewModel: @preconcurrency CBCentralManagerDelegate, @
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        if let error { status = "Char discovery error: \(error.localizedDescription)"; return }
+        if let error { 
+            status = "Char discovery error: \(error.localizedDescription)"
+            print("❌ [BLE] Characteristic discovery failed: \(error.localizedDescription)")
+            return 
+        }
         for c in service.characteristics ?? [] {
             if service.uuid == .heartRateService, c.uuid == .hrMeasurement {
                 peripheral.setNotifyValue(true, for: c)
                 status = "Subscribed HR measurement"
+                print("✅ [BLE] Subscribed to HR notifications")
             }
             if service.uuid == .cyclingPowerService, c.uuid == .cyclingPowerMeasure {
                 peripheral.setNotifyValue(true, for: c)
                 status = "Subscribed power measurement"
+                print("✅ [BLE] Subscribed to power notifications")
             }
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        if let error { status = "Notify error: \(error.localizedDescription)"; return }
-        guard let data = characteristic.value else { return }
+        if let error { 
+            status = "Notify error: \(error.localizedDescription)"
+            print("❌ [BLE] Notification error: \(error.localizedDescription)")
+            return 
+        }
+        guard let data = characteristic.value else { 
+            print("⚠️ [BLE] No data in characteristic update")
+            return 
+        }
+        
+        // FIXED: Proper cadence calculation flow
         if characteristic.uuid == .hrMeasurement {
-            if let bpm = parseHeartRate(from: data) { heartRateBPM = bpm }
+            if let bpm = parseHeartRate(from: data) { 
+                heartRateBPM = bpm 
+            }
         } else if characteristic.uuid == .cyclingPowerMeasure {
-            if let w = parseInstantPower(from: data) { powerWatts = w }
-            if let rpm = parseCadence(from: data) { cadenceRPM = rpm }
+            // Always try to parse both power and cadence from the same packet
+            if let w = parseInstantPower(from: data) { 
+                powerWatts = w 
+            }
+            
+            // Try to parse cadence independently
+            // This will return nil if crank data isn't present or first reading
+            if let rpm = parseCadence(from: data) { 
+                cadenceRPM = rpm 
+            } else if powerWatts == 0 {
+                // Only set cadence to 0 if power is 0 AND parsing returned nil
+                // This handles the case where the rider stops pedaling
+                cadenceRPM = 0
+            }
+            // Otherwise, keep the last cadence value (don't set to nil)
         }
     }
 }

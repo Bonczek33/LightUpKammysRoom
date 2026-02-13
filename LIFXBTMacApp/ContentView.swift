@@ -5,6 +5,7 @@ struct ContentView: View {
     @StateObject private var bt = BluetoothSensorsViewModel()
     @StateObject private var auto = AutoColorController()
     @StateObject private var store = UserConfigStore()
+    @StateObject private var charts = ChartsViewModel()  // NEW: Charts view model
 
     private let intFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -16,7 +17,7 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 12) {
 
-                // Layout: left BT panel, right wider LIFX panel (Option 2)
+                // Layout: left BT panel, right wider LIFX panel
                 HStack(alignment: .top, spacing: 16) {
                     BluetoothPanel(bt: bt)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -40,6 +41,11 @@ struct ContentView: View {
                     onSave: saveAll,
                     onReset: resetAll
                 )
+                
+                Divider()
+                
+                // NEW: Charts panel
+                ChartsPanel(charts: charts)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -47,6 +53,7 @@ struct ContentView: View {
         .task {
             store.load()
             auto.bind(lifx: lifx, bt: bt)
+            charts.bind(bt: bt)  // NEW: Bind charts to BT data
             applyStore()
             
             // Listen for settings changes from Settings window
@@ -64,12 +71,16 @@ struct ContentView: View {
         .onChange(of: lifx.aliasByID) { _, newValue in
             store.aliasesByID = newValue
         }
+        .onChange(of: store.weightKg) { _, newValue in
+            charts.weightKg = newValue  // NEW: Update charts when weight changes
+        }
         .onDisappear {
             saveAll()
             lifx.stop()
             bt.stopScan()
             bt.disconnectAll()
             auto.stop()
+            charts.stop()  // NEW: Stop charts sampling
         }
     }
 
@@ -83,6 +94,9 @@ struct ContentView: View {
         auto.minIntensityPercent = store.minIntensityPercent
         auto.maxIntensityPercent = store.maxIntensityPercent
         lifx.aliasByID = store.aliasesByID
+        
+        // NEW: Update charts weight
+        charts.weightKg = store.weightKg
     }
 
     private func saveAll() {
