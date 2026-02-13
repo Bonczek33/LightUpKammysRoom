@@ -48,7 +48,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Light Up Kammys Room.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		96253C7A2F32857A00E17BB2 /* Light Up Kammy's Room.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Light Up Kammy's Room.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		96253C812F32857B00E17BB2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		96253C842F32857B00E17BB2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		96253C862F32857B00E17BB2 /* LIFXBTMacApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LIFXBTMacApp.entitlements; sourceTree = "<group>"; };
@@ -114,7 +114,7 @@
 		96253C7B2F32857A00E17BB2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */,
+				96253C7A2F32857A00E17BB2 /* Light Up Kammy's Room.app */,
 				96253C8B2F32857C00E17BB2 /* LIFXBTMacAppTests.xctest */,
 				96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */,
 			);
@@ -191,7 +191,7 @@
 			);
 			name = LIFXBTMacApp;
 			productName = LIFXBTMacApp;
-			productReference = 96253C7A2F32857A00E17BB2 /* Light Up Kammys Room.app */;
+			productReference = 96253C7A2F32857A00E17BB2 /* Light Up Kammy's Room.app */;
 			productType = "com.apple.product-type.application";
 		};
 		96253C8A2F32857C00E17BB2 /* LIFXBTMacAppTests */ = {
@@ -525,7 +525,7 @@
 				ENABLE_USER_SELECTED_FILES = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
+				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammy's Room";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -537,7 +537,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
-				PRODUCT_NAME = "Light Up Kammys Room";
+				PRODUCT_NAME = "Light Up Kammy's Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -572,7 +572,7 @@
 				ENABLE_USER_SELECTED_FILES = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammys Room";
+				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammy's Room";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -584,7 +584,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
-				PRODUCT_NAME = "Light Up Kammys Room";
+				PRODUCT_NAME = "Light Up Kammy's Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";

@@ -7,7 +7,7 @@ extension Notification.Name {
 @main
 struct LIFXBTMacApp: App {
     var body: some Scene {
-        WindowGroup("Light Up Kammys Room") {
+        WindowGroup("Light Up Kammy's Room") {
             ContentView()
         }
         // REMOVED: Duplicate Settings menu command
