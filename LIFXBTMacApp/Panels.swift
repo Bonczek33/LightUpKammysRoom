@@ -1,3 +1,10 @@
+//
+//  Panels.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 
 // MARK: - Bluetooth Status Bar (compact — config is in Settings)
@@ -304,3 +311,4 @@ struct LIFXPanel: View {
         }
     }
 }
+

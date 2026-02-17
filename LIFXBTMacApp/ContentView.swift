@@ -1,3 +1,10 @@
+//
+//  ContentView.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 
 struct ContentView: View {
@@ -138,3 +145,4 @@ struct ContentView: View {
         applyStore()
     }
 }
+

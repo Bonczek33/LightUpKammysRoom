@@ -1,3 +1,10 @@
+//
+//  Models.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 import SwiftUI
 
@@ -16,3 +23,4 @@ struct LIFXColor: Hashable {
     var briU16: UInt16
     var kelvin: UInt16
 }
+

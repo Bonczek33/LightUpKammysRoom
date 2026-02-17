@@ -1,3 +1,10 @@
+//
+//  LIFXLanControl.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 import Network
 
@@ -244,3 +251,4 @@ final class LIFXLanControl {
         return Data(bytes: &v, count: MemoryLayout<T>.size)
     }
 }
+

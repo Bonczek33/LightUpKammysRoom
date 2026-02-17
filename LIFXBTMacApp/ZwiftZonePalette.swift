@@ -1,3 +1,10 @@
+//
+//  ZwiftZonePalette.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 
 struct LIFXBasicColor: Identifiable, Hashable {
@@ -33,3 +40,4 @@ enum ZwiftZonePalette {
         .init(name: "Z7 Purple", hueU16: u16Hue(270), satU16: 65535, kelvin: 3500),
     ]
 }
+

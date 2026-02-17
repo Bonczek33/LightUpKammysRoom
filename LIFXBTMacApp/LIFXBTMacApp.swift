@@ -1,3 +1,10 @@
+//
+//  LIFXBTMacApp.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 import AppKit
 
@@ -1180,3 +1187,4 @@ private var appVersionString: String {
     let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
     return "Version \(version) (\(build))"
 }
+

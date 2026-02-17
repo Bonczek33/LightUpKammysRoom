@@ -1,3 +1,10 @@
+//
+//  Zones.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 
 struct Zone: Identifiable, Hashable {
@@ -33,3 +40,4 @@ enum ZoneDefs {
         return zones.last!
     }
 }
+

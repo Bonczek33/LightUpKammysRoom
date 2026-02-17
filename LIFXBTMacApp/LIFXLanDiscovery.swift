@@ -1,3 +1,10 @@
+//
+//  LIFXLanDiscovery.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 import Network
 
@@ -468,3 +475,4 @@ extension sockaddr {
         return String(cString: hostname)
     }
 }
+

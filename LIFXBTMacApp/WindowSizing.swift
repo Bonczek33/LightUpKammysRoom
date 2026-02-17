@@ -1,3 +1,10 @@
+//
+//  WindowSizing.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 import AppKit
 

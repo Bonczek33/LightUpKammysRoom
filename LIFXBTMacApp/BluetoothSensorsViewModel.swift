@@ -1,3 +1,10 @@
+//
+//  BluetoothSensorsViewModel.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 import CoreBluetooth
 import SwiftUI
@@ -539,3 +546,4 @@ extension BluetoothSensorsViewModel: @preconcurrency CBCentralManagerDelegate, @
         }
     }
 }
+

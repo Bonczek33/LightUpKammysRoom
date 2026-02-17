@@ -5,7 +5,6 @@
 //  Created by Tomasz Bak on 2/13/26.
 //
 
-
 import SwiftUI
 
 @available(macOS 13.0, *)

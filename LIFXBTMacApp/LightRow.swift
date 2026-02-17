@@ -1,3 +1,10 @@
+//
+//  LightRow.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import SwiftUI
 
 struct DeviceList: View {
@@ -129,3 +136,4 @@ struct LEDDot: View {
             .accessibilityHidden(true)
     }
 }
+

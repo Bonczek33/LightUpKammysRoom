@@ -1,3 +1,10 @@
+//
+//  UserConfigStore.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/16/26.
+//
+
 import Foundation
 import SwiftUI
 
@@ -178,3 +185,4 @@ final class UserConfigStore: ObservableObject {
         save()
     }
 }
+
