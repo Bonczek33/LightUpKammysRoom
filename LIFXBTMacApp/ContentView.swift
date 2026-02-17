@@ -2,10 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var bt: BluetoothSensorsViewModel
-    @StateObject private var lifx = LIFXDiscoveryViewModel()
-    @StateObject private var auto = AutoColorController()
-    @StateObject private var store = UserConfigStore()
-    @StateObject private var charts = ChartsViewModel()  // NEW: Charts view model
+    @ObservedObject var lifx: LIFXDiscoveryViewModel
+    @ObservedObject var auto: AutoColorController
+    @ObservedObject var store: UserConfigStore
+    @ObservedObject var charts: ChartsViewModel  // Charts view model
 
     private let intFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -20,22 +20,15 @@ struct ContentView: View {
                 // Compact BT status bar (config moved to Settings)
                 BluetoothStatusBar(bt: bt)
 
-                LIFXPanel(vm: lifx, store: store)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                Divider()
-
+                // NOTE: LIFX discovery/selection UI moved to Settings > Lights, and Menu Bar
                 AutoColorPanel(
                     auto: auto,
                     store: store,
-                    formatter: intFormatter,
-                    onSave: saveAll,
-                    onReset: resetAll
+                    formatter: intFormatter
                 )
-                
+
                 Divider()
-                
-                // NEW: Charts panel
+
                 ChartsPanel(charts: charts)
             }
             .padding()
@@ -44,10 +37,13 @@ struct ContentView: View {
         .environmentObject(bt)
         .task {
             store.load()
+
+            // Bind controllers/view-models
             auto.bind(lifx: lifx, bt: bt)
-            charts.bind(bt: bt)  // NEW: Bind charts to BT data
+            charts.bind(bt: bt)
+
             applyStore()
-            
+
             // Remember connected devices for auto-reconnect
             bt.onDeviceConnected = { [weak store] id, name, isHR, isPower in
                 guard let store else { return }
@@ -61,15 +57,24 @@ struct ContentView: View {
                 }
                 store.save()
             }
-            
-            // Auto-reconnect to last known devices
+
+            // Auto-reconnect to last known BT devices
             if store.btAutoReconnect {
                 bt.autoReconnect(
                     hrUUID: store.lastHRPeripheralID,
                     powerUUID: store.lastPowerPeripheralID
                 )
             }
-            
+
+            // Auto-reconnect to last known LIFX lights
+            if store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
+                lifx.aliasByID = store.aliasesByID
+                lifx.autoReconnectLights(
+                    savedEntries: store.savedLightEntries,
+                    savedSelectedIDs: store.savedSelectedLightIDs
+                )
+            }
+
             // Listen for settings changes from Settings window
             NotificationCenter.default.addObserver(
                 forName: .settingsDidChange,
@@ -86,15 +91,12 @@ struct ContentView: View {
             store.aliasesByID = newValue
         }
         .onChange(of: store.weightKg) { _, newValue in
-            charts.weightKg = newValue  // NEW: Update charts when weight changes
+            charts.weightKg = newValue
         }
         .onDisappear {
+            // Do not stop LIFX / BT / Auto / Charts here:
+            // the app may continue running via Menu Bar and Settings.
             saveAll()
-            lifx.stop()
-            bt.stopScan()
-            bt.disconnectAll()
-            auto.stop()
-            charts.stop()  // NEW: Stop charts sampling
         }
     }
 
@@ -107,9 +109,11 @@ struct ContentView: View {
         auto.modulateIntensityWithHR = store.modulateIntensityWithHR
         auto.minIntensityPercent = store.minIntensityPercent
         auto.maxIntensityPercent = store.maxIntensityPercent
+        auto.modulateIntensityWithPower = store.modulateIntensityWithPower
+        auto.minPowerIntensityPercent = store.minPowerIntensityPercent
+        auto.maxPowerIntensityPercent = store.maxPowerIntensityPercent
+
         lifx.aliasByID = store.aliasesByID
-        
-        // NEW: Update charts weight
         charts.weightKg = store.weightKg
     }
 
@@ -122,6 +126,9 @@ struct ContentView: View {
         store.modulateIntensityWithHR = auto.modulateIntensityWithHR
         store.minIntensityPercent = auto.minIntensityPercent
         store.maxIntensityPercent = auto.maxIntensityPercent
+        store.modulateIntensityWithPower = auto.modulateIntensityWithPower
+        store.minPowerIntensityPercent = auto.minPowerIntensityPercent
+        store.maxPowerIntensityPercent = auto.maxPowerIntensityPercent
         store.aliasesByID = lifx.aliasByID
         store.save()
     }

@@ -176,4 +176,40 @@ final class ChartsViewModel: ObservableObject {
         let max = values.max()
         return (current, avg, max)
     }
+    
+    // MARK: - Histogram
+    
+    struct HistogramBucket: Identifiable {
+        let id = UUID()
+        let rangeLow: Double
+        let rangeHigh: Double
+        let midpoint: Double
+        let count: Int
+        let fraction: Double // 0..1 relative to max bucket
+    }
+    
+    /// Build histogram buckets from a data point array within a given range
+    static func histogram(from points: [DataPoint], range: ClosedRange<Double>, bucketCount: Int = 20) -> [HistogramBucket] {
+        guard !points.isEmpty, range.upperBound > range.lowerBound else { return [] }
+        
+        let span = range.upperBound - range.lowerBound
+        let bucketSize = span / Double(bucketCount)
+        var counts = [Int](repeating: 0, count: bucketCount)
+        
+        for point in points {
+            var idx = Int((point.value - range.lowerBound) / bucketSize)
+            idx = Swift.max(0, Swift.min(bucketCount - 1, idx))
+            counts[idx] += 1
+        }
+        
+        let maxCount = counts.max() ?? 1
+        
+        return (0..<bucketCount).map { i in
+            let low = range.lowerBound + Double(i) * bucketSize
+            let high = low + bucketSize
+            let mid = (low + high) / 2.0
+            let fraction = maxCount > 0 ? Double(counts[i]) / Double(maxCount) : 0
+            return HistogramBucket(rangeLow: low, rangeHigh: high, midpoint: mid, count: counts[i], fraction: fraction)
+        }
+    }
 }

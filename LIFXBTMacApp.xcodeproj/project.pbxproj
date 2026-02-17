@@ -27,7 +27,8 @@
 		96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC62F3286A700E17BB2 /* ContentView.swift */; };
 		96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC92F32936D00E17BB2 /* WindowSizing.swift */; };
 		C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */; };
-		C26837602F3FA95F00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
+		C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
+		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +74,7 @@
 		96253CC92F32936D00E17BB2 /* WindowSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSizing.swift; sourceTree = "<group>"; };
 		C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsPanel.swift; sourceTree = "<group>"; };
 		C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsViewModel.swift; sourceTree = "<group>"; };
+		C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLightsView.swift; sourceTree = "<group>"; };
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -124,6 +126,7 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */,
 				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
 				C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */,
 				C283CE772F3EB7D800EE0F4D /* Info.plist */,
@@ -315,7 +318,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n#agvtool next-version -all\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n#agvtool next-version -all\n#agvtool next-version\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -325,7 +328,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				96253CBD2F3285A800E17BB2 /* AutoColorController.swift in Sources */,
-				C26837602F3FA95F00A43AE6 /* ChartsViewModel.swift in Sources */,
+				C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */,
 				96253CC32F3285E400E17BB2 /* ZwiftZonePalette.swift in Sources */,
 				96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */,
 				C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */,
@@ -333,6 +336,7 @@
 				96253CC02F3285A800E17BB2 /* Zones.swift in Sources */,
 				96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */,
 				96253CB92F3285A800E17BB2 /* LIFXLanDiscovery.swift in Sources */,
+				C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */,
 				96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */,
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
@@ -503,12 +507,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LIFXBTMacApp/LIFXBTMacApp.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
+				DEVELOPMENT_TEAM = ZN34UP654Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
@@ -535,7 +540,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
 				PRODUCT_NAME = "Light Up Kammy's Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -550,12 +555,13 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = LIFXBTMacApp/LIFXBTMacApp.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
+				DEVELOPMENT_TEAM = ZN34UP654Z;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
@@ -582,7 +588,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 2.0;
+				MARKETING_VERSION = 2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.TomBK.LIFXBTMacApp;
 				PRODUCT_NAME = "Light Up Kammy's Room";
 				SWIFT_EMIT_LOC_STRINGS = YES;

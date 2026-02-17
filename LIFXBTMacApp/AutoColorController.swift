@@ -17,6 +17,8 @@ final class AutoColorController: ObservableObject {
 
     @Published private(set) var lastZoneID: Int? = nil
     @Published private(set) var lastInputText: String = "—"
+    @Published private(set) var appliedPaletteIndex: Int? = nil
+    @Published private(set) var appliedIntensityPercent: Double? = nil
 
     // Bindings to store values
     var dateOfBirth: Date = UserConfigStore.defaultsDOB
@@ -25,6 +27,9 @@ final class AutoColorController: ObservableObject {
     var modulateIntensityWithHR: Bool = false
     var minIntensityPercent: Double = 10.0
     var maxIntensityPercent: Double = 100.0
+    var modulateIntensityWithPower: Bool = false
+    var minPowerIntensityPercent: Double = 10.0
+    var maxPowerIntensityPercent: Double = 100.0
 
     weak var lifx: LIFXDiscoveryViewModel?
     weak var bt: BluetoothSensorsViewModel?
@@ -46,6 +51,7 @@ final class AutoColorController: ObservableObject {
     private var lastSentHue: UInt16?
     private var lastSentSat: UInt16?
     private var lastSentKelvin: UInt16?
+    private var lastSentBrightness: UInt16?
 
     // Moving-average storage for power control
     private var powerSamples: [Int] = []
@@ -67,7 +73,7 @@ final class AutoColorController: ObservableObject {
         print("✅ [AutoColor] Bound to LIFX and BLE, starting control loop")
     }
 
-    func stop() { 
+    func stop() {
         task?.cancel()
         task = nil
         resetSmoothing()
@@ -113,6 +119,7 @@ final class AutoColorController: ObservableObject {
         lastSentHue = nil
         lastSentSat = nil
         lastSentKelvin = nil
+        lastSentBrightness = nil
 
         powerSamples.removeAll()
         powerSampleCap = 0
@@ -148,9 +155,9 @@ final class AutoColorController: ObservableObject {
     }
 
     private func tick() async {
-        guard let lifx, let bt else { 
+        guard let lifx, let bt else {
             // No bindings yet
-            return 
+            return
         }
 
         if source != lastSource {
@@ -236,6 +243,7 @@ final class AutoColorController: ObservableObject {
         guard let rs = smoothedRatio else { return }
 
         let zone = ZoneDefs.zone(for: rs)
+        appliedPaletteIndex = zone.paletteIndex
         
         // Only log zone changes to reduce console spam
         if lastZoneID != zone.id {
@@ -246,34 +254,77 @@ final class AutoColorController: ObservableObject {
         // Apply discrete zone color
         let p = ZwiftZonePalette.colors[zone.paletteIndex]
         
-        // Modulate brightness based on heart rate WITHIN the current zone
-        if source == .power && modulateIntensityWithHR, let hrBPM = bt.heartRateBPM {
-            let intensity = calculateIntensityModulation(hrBPM: hrBPM, zone: zone)
-            let finalBrightness = UInt16(max(0, min(65535, intensity * 65535.0)))
-            
-            // Send update if color changed
-            if shouldSendUpdate(hue: p.hueU16, sat: p.satU16, kelvin: p.kelvin) {
+        // Determine intensity modulation
+        let modulatedBrightness: UInt16? = calculateModulatedBrightness(zone: zone, bt: bt)
+        
+        if let finalBrightness = modulatedBrightness {
+            // Send update if color or brightness changed
+            if shouldSendUpdate(hue: p.hueU16, sat: p.satU16, kelvin: p.kelvin, brightness: finalBrightness) {
                 lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 450, brightness: finalBrightness)
                 lastSentHue = p.hueU16
                 lastSentSat = p.satU16
                 lastSentKelvin = p.kelvin
+                lastSentBrightness = finalBrightness
                 lastSentT = now
             }
         } else {
+            appliedIntensityPercent = nil
             // No modulation - use light's current brightness
-            if shouldSendUpdate(hue: p.hueU16, sat: p.satU16, kelvin: p.kelvin) {
+            if shouldSendUpdate(hue: p.hueU16, sat: p.satU16, kelvin: p.kelvin, brightness: nil) {
                 lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 450)
                 lastSentHue = p.hueU16
                 lastSentSat = p.satU16
                 lastSentKelvin = p.kelvin
+                lastSentBrightness = nil
                 lastSentT = now
             }
         }
     }
     
+    /// Determine the modulated brightness for the current source and zone.
+    /// Returns nil if no modulation is active or data is unavailable.
+    private func calculateModulatedBrightness(zone: Zone, bt: BluetoothSensorsViewModel) -> UInt16? {
+        switch source {
+        case .power:
+            // When source is Power, can modulate intensity with HR (existing behavior)
+            // or with power position within zone
+            if modulateIntensityWithHR, let hrBPM = bt.heartRateBPM {
+                let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
+                appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
+                return UInt16(max(0, min(65535, intensity * 65535.0)))
+            } else if modulateIntensityWithPower, let wRaw = bt.powerWatts {
+                let ftpSafe = max(1, ftp)
+                let powerRatio = Double(wRaw) / Double(ftpSafe)
+                let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
+                appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
+                return UInt16(max(0, min(65535, intensity * 65535.0)))
+            }
+            
+        case .heartRate:
+            // When source is HR, can modulate intensity with power position within zone
+            // or with HR position within zone
+            if modulateIntensityWithPower, let wRaw = bt.powerWatts {
+                let ftpSafe = max(1, ftp)
+                let powerRatio = Double(wRaw) / Double(ftpSafe)
+                let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
+                appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
+                return UInt16(max(0, min(65535, intensity * 65535.0)))
+            } else if modulateIntensityWithHR, let hrBPM = bt.heartRateBPM {
+                let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
+                appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
+                return UInt16(max(0, min(65535, intensity * 65535.0)))
+            }
+            
+        case .off:
+            break
+        }
+        
+        return nil
+    }
+    
     /// Calculate intensity modulation based on HR position within zone
     /// Extracted for testability and clarity
-    private func calculateIntensityModulation(hrBPM: Int, zone: Zone) -> Double {
+    private func calculateHRIntensityModulation(hrBPM: Int, zone: Zone) -> Double {
         // Calculate HR ratio (0.0 to 1.0)
         let hrRatio = Double(hrBPM) / Double(maxHR)
         let clampedHRRatio = max(0.0, min(1.0, hrRatio))
@@ -299,11 +350,37 @@ final class AutoColorController: ObservableObject {
         return intensity
     }
     
+    /// Calculate intensity modulation based on power ratio position within zone
+    /// Mirrors HR modulation logic but uses power/FTP ratio instead of HR/maxHR
+    private func calculatePowerIntensityModulation(powerRatio: Double, zone: Zone) -> Double {
+        let clampedRatio = max(0.0, min(2.0, powerRatio))
+        
+        // Find power position within current zone
+        let zonePositionRatio: Double
+        if let zoneHigh = zone.high {
+            let zoneSpan = max(0.000001, zoneHigh - zone.low)
+            zonePositionRatio = min(1.0, max(0.0, (clampedRatio - zone.low) / zoneSpan))
+        } else {
+            // Last zone (no upper bound) - use 0.0 at zone start, 1.0 at ~1.5x threshold
+            let zoneSpan = max(0.000001, 1.5 - zone.low)
+            zonePositionRatio = min(1.0, max(0.0, (clampedRatio - zone.low) / zoneSpan))
+        }
+        
+        // Map zone position to intensity range (using power-specific min/max)
+        let minIntensity = minPowerIntensityPercent / 100.0
+        let maxIntensity = maxPowerIntensityPercent / 100.0
+        let intensityRange = maxIntensity - minIntensity
+        let intensity = minIntensity + (zonePositionRatio * intensityRange)
+        
+        return intensity
+    }
+    
     /// Determine if we should send an update to avoid redundant commands
-    private func shouldSendUpdate(hue: UInt16, sat: UInt16, kelvin: UInt16) -> Bool {
-        return lastSentHue == nil || 
-               lastSentHue != hue || 
-               lastSentSat != sat || 
-               lastSentKelvin != kelvin
+    private func shouldSendUpdate(hue: UInt16, sat: UInt16, kelvin: UInt16, brightness: UInt16?) -> Bool {
+        return lastSentHue == nil ||
+               lastSentHue != hue ||
+               lastSentSat != sat ||
+               lastSentKelvin != kelvin ||
+               lastSentBrightness != brightness
     }
 }

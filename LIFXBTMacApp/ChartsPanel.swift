@@ -83,13 +83,42 @@ struct ChartsPanel: View {
                     
                     Divider()
                     
-                    // Chart
+                    // Time series chart
                     chartView(for: selectedChart)
-                        .frame(height: 200)
+                        .frame(height: 180)
                         .padding(16)
                 }
             }
-            .frame(height: 280)
+            .frame(height: 260)
+            
+            // Histogram
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("Distribution")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
+                    
+                    Divider()
+                    
+                    histogramView(for: selectedChart)
+                        .frame(height: 100)
+                        .padding(16)
+                }
+            }
+            .frame(height: 160)
         }
     }
     
@@ -208,19 +237,6 @@ struct ChartsPanel: View {
                     )
                     .foregroundStyle(Color.orange.gradient)
                     .interpolationMethod(.catmullRom)
-                    
-                    AreaMark(
-                        x: .value("Time", point.timestamp),
-                        y: .value("Power", point.value)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.orange.opacity(0.3), Color.orange.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.powerRange)
                 .chartXAxis {
@@ -254,19 +270,6 @@ struct ChartsPanel: View {
                         y: .value("Cadence", point.value)
                     )
                     .foregroundStyle(Color.blue.gradient)
-                    .interpolationMethod(.catmullRom)
-                    
-                    AreaMark(
-                        x: .value("Time", point.timestamp),
-                        y: .value("Cadence", point.value)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
                     .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.cadenceRange)
@@ -302,19 +305,6 @@ struct ChartsPanel: View {
                     )
                     .foregroundStyle(Color.purple.gradient)
                     .interpolationMethod(.catmullRom)
-                    
-                    AreaMark(
-                        x: .value("Time", point.timestamp),
-                        y: .value("W/kg", point.value)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.purple.opacity(0.3), Color.purple.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.powerToWeightRange)
                 .chartXAxis {
@@ -335,6 +325,76 @@ struct ChartsPanel: View {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+    
+    private func histogramData(for type: ChartType) -> (buckets: [ChartsViewModel.HistogramBucket], color: Color, range: ClosedRange<Double>) {
+        switch type {
+        case .heartRate:
+            return (ChartsViewModel.histogram(from: charts.heartRateHistory, range: charts.heartRateRange), .red, charts.heartRateRange)
+        case .power:
+            return (ChartsViewModel.histogram(from: charts.powerHistory, range: charts.powerRange), .orange, charts.powerRange)
+        case .cadence:
+            return (ChartsViewModel.histogram(from: charts.cadenceHistory, range: charts.cadenceRange), .blue, charts.cadenceRange)
+        case .powerToWeight:
+            return (ChartsViewModel.histogram(from: charts.powerToWeightHistory, range: charts.powerToWeightRange), .purple, charts.powerToWeightRange)
+        }
+    }
+    
+    @ViewBuilder
+    private func histogramView(for type: ChartType) -> some View {
+        let data = histogramData(for: type)
+        
+        if data.buckets.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.secondary.opacity(0.5))
+                Text("No data yet")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            let maxCount = data.buckets.map(\.count).max() ?? 1
+            Chart(data.buckets) { bucket in
+                BarMark(
+                    x: .value("Value", bucket.midpoint),
+                    y: .value("Count", bucket.count)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [data.color.opacity(0.7), data.color.opacity(0.3)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            }
+            .chartXScale(domain: data.range)
+            .chartYScale(domain: 0...(Double(maxCount) * 1.1))
+            .chartXAxis {
+                AxisMarks(position: .bottom) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            switch type {
+                            case .powerToWeight:
+                                Text(String(format: "%.1f", v))
+                                    .font(.caption)
+                            default:
+                                Text("\(Int(v))")
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { _ in
+                    AxisGridLine()
                 }
             }
         }

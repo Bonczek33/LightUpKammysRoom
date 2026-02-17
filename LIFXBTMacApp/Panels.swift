@@ -61,9 +61,6 @@ struct AutoColorPanel: View {
     @ObservedObject var store: UserConfigStore
     let formatter: NumberFormatter
 
-    let onSave: () -> Void
-    let onReset: () -> Void
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
@@ -78,9 +75,6 @@ struct AutoColorPanel: View {
                 .frame(width: 560)
 
                 Spacer()
-
-                Button("Save") { onSave() }
-                Button("Reset Defaults") { onReset() }
 
                 Text(auto.lastInputText)
                     .font(.caption)
@@ -109,6 +103,9 @@ struct AutoColorPanel: View {
 
                 Spacer()
 
+                // Current applied color + intensity indicator
+                AppliedColorIndicator(auto: auto)
+
                 Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -119,6 +116,49 @@ struct AutoColorPanel: View {
         .onChange(of: auto.source) { _, newValue in
             store.autoSourceRaw = newValue.rawValue
         }
+    }
+}
+
+// MARK: - Applied Color Indicator
+
+struct AppliedColorIndicator: View {
+    @ObservedObject var auto: AutoColorController
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(colorForCurrentState(paletteIndex: auto.appliedPaletteIndex, intensityPercent: auto.appliedIntensityPercent))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.secondary.opacity(0.4), lineWidth: 1)
+                )
+                .frame(width: 28, height: 16)
+                .shadow(color: colorForCurrentState(paletteIndex: auto.appliedPaletteIndex, intensityPercent: auto.appliedIntensityPercent).opacity(0.5), radius: 4)
+            
+            if let intensity = auto.appliedIntensityPercent {
+                Text("\(Int(intensity.rounded()))%")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundColor(.secondary)
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: auto.appliedPaletteIndex ?? -1)
+        .animation(.easeInOut(duration: 0.3), value: auto.appliedIntensityPercent ?? -1)
+    }
+    
+    private func colorForCurrentState(paletteIndex: Int?, intensityPercent: Double?) -> Color {
+        guard let idx = paletteIndex else { return .gray.opacity(0.3) }
+        let safeIdx = max(0, min(ZwiftZonePalette.colors.count - 1, idx))
+        let p = ZwiftZonePalette.colors[safeIdx]
+        let brightness = (intensityPercent ?? 100.0) / 100.0
+        if p.satU16 == 0 {
+            return Color(hue: 0, saturation: 0, brightness: max(0.15, brightness * 0.7))
+        }
+        return Color(
+            hue: Double(p.hueU16) / 65535.0,
+            saturation: Double(p.satU16) / 65535.0,
+            brightness: max(0.15, brightness * 0.9)
+        )
     }
 }
 
@@ -228,9 +268,7 @@ struct LIFXPanel: View {
                     alias: vm.aliasByID[light.id] ?? "",
                     isSelected: vm.selectedIDs.contains(light.id),
                     lifxColor: vm.colorByID[light.id],
-                    brightness: vm.brightnessByID[light.id] ?? 32768,
                     onToggleSelect: { vm.toggleSelection(for: light) },
-                    onBrightnessChanged: { vm.setBrightness(lightID: light.id, level: $0) },
                     onAliasChanged: { newAlias in
                         vm.setAlias(lightID: light.id, alias: newAlias)
                     }
@@ -239,3 +277,4 @@ struct LIFXPanel: View {
         }
     }
 }
+

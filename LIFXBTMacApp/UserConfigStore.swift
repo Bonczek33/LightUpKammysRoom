@@ -14,12 +14,29 @@ struct PersistedUserConfig: Codable {
     var minIntensityPercent: Double
     var maxIntensityPercent: Double
     
+    // Intensity modulation with power
+    var modulateIntensityWithPower: Bool?
+    var minPowerIntensityPercent: Double?
+    var maxPowerIntensityPercent: Double?
+    
     // Bluetooth auto-reconnect
     var btAutoReconnect: Bool?            // nil for migration from older configs
     var lastHRPeripheralID: String?       // UUID string of last connected HR device
     var lastHRPeripheralName: String?     // Display name for UI
     var lastPowerPeripheralID: String?    // UUID string of last connected Power device
     var lastPowerPeripheralName: String?  // Display name for UI
+    
+    // LIFX auto-reconnect
+    var lifxAutoReconnect: Bool?          // nil for migration from older configs
+    var savedLightEntries: [SavedLightEntry]?  // Known lights (id, ip, label)
+    var savedSelectedLightIDs: [String]?  // Which lights were selected
+}
+
+/// A minimal snapshot of a discovered LIFX light for persistence
+struct SavedLightEntry: Codable, Hashable {
+    let id: String      // MAC-based hex ID
+    let ip: String      // Last known IP
+    let label: String   // Device label at time of save
 }
 
 @MainActor
@@ -35,10 +52,14 @@ final class UserConfigStore: ObservableObject {
     static let defaultsFTP = 150
     static let defaultsWeightKg: Double = 50.0
     static let defaultsPowerMovingAverageSeconds: Double = 2.0
-    static let defaultsModulateIntensityWithHR: Bool = true
+    static let defaultsModulateIntensityWithHR: Bool = false
     static let defaultsMinIntensityPercent: Double = 10.0
     static let defaultsMaxIntensityPercent: Double = 100.0
+    static let defaultsModulateIntensityWithPower: Bool = true
+    static let defaultsMinPowerIntensityPercent: Double = 10.0
+    static let defaultsMaxPowerIntensityPercent: Double = 100.0
     static let defaultsBTAutoReconnect: Bool = true
+    static let defaultsLIFXAutoReconnect: Bool = true
 
     // bump key because schema changed
     private let key = "lifx_bt_tacx_user_config_v9"
@@ -54,11 +75,19 @@ final class UserConfigStore: ObservableObject {
     @Published var minIntensityPercent: Double = defaultsMinIntensityPercent
     @Published var maxIntensityPercent: Double = defaultsMaxIntensityPercent
     
+    @Published var modulateIntensityWithPower: Bool = defaultsModulateIntensityWithPower
+    @Published var minPowerIntensityPercent: Double = defaultsMinPowerIntensityPercent
+    @Published var maxPowerIntensityPercent: Double = defaultsMaxPowerIntensityPercent
+    
     @Published var btAutoReconnect: Bool = defaultsBTAutoReconnect
     @Published var lastHRPeripheralID: String? = nil
     @Published var lastHRPeripheralName: String? = nil
     @Published var lastPowerPeripheralID: String? = nil
     @Published var lastPowerPeripheralName: String? = nil
+    
+    @Published var lifxAutoReconnect: Bool = defaultsLIFXAutoReconnect
+    @Published var savedLightEntries: [SavedLightEntry] = []
+    @Published var savedSelectedLightIDs: [String] = []
 
     func load() {
         guard let data = UserDefaults.standard.data(forKey: key) else { return }
@@ -72,11 +101,17 @@ final class UserConfigStore: ObservableObject {
             modulateIntensityWithHR = decoded.modulateIntensityWithHR
             minIntensityPercent = decoded.minIntensityPercent
             maxIntensityPercent = decoded.maxIntensityPercent
+            modulateIntensityWithPower = decoded.modulateIntensityWithPower ?? Self.defaultsModulateIntensityWithPower
+            minPowerIntensityPercent = decoded.minPowerIntensityPercent ?? Self.defaultsMinPowerIntensityPercent
+            maxPowerIntensityPercent = decoded.maxPowerIntensityPercent ?? Self.defaultsMaxPowerIntensityPercent
             btAutoReconnect = decoded.btAutoReconnect ?? Self.defaultsBTAutoReconnect
             lastHRPeripheralID = decoded.lastHRPeripheralID
             lastHRPeripheralName = decoded.lastHRPeripheralName
             lastPowerPeripheralID = decoded.lastPowerPeripheralID
             lastPowerPeripheralName = decoded.lastPowerPeripheralName
+            lifxAutoReconnect = decoded.lifxAutoReconnect ?? Self.defaultsLIFXAutoReconnect
+            savedLightEntries = decoded.savedLightEntries ?? []
+            savedSelectedLightIDs = decoded.savedSelectedLightIDs ?? []
         }
     }
 
@@ -91,11 +126,17 @@ final class UserConfigStore: ObservableObject {
             modulateIntensityWithHR: modulateIntensityWithHR,
             minIntensityPercent: minIntensityPercent,
             maxIntensityPercent: maxIntensityPercent,
+            modulateIntensityWithPower: modulateIntensityWithPower,
+            minPowerIntensityPercent: minPowerIntensityPercent,
+            maxPowerIntensityPercent: maxPowerIntensityPercent,
             btAutoReconnect: btAutoReconnect,
             lastHRPeripheralID: lastHRPeripheralID,
             lastHRPeripheralName: lastHRPeripheralName,
             lastPowerPeripheralID: lastPowerPeripheralID,
-            lastPowerPeripheralName: lastPowerPeripheralName
+            lastPowerPeripheralName: lastPowerPeripheralName,
+            lifxAutoReconnect: lifxAutoReconnect,
+            savedLightEntries: savedLightEntries,
+            savedSelectedLightIDs: savedSelectedLightIDs
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: key)
@@ -112,11 +153,17 @@ final class UserConfigStore: ObservableObject {
         modulateIntensityWithHR = Self.defaultsModulateIntensityWithHR
         minIntensityPercent = Self.defaultsMinIntensityPercent
         maxIntensityPercent = Self.defaultsMaxIntensityPercent
+        modulateIntensityWithPower = Self.defaultsModulateIntensityWithPower
+        minPowerIntensityPercent = Self.defaultsMinPowerIntensityPercent
+        maxPowerIntensityPercent = Self.defaultsMaxPowerIntensityPercent
         btAutoReconnect = Self.defaultsBTAutoReconnect
         lastHRPeripheralID = nil
         lastHRPeripheralName = nil
         lastPowerPeripheralID = nil
         lastPowerPeripheralName = nil
+        lifxAutoReconnect = Self.defaultsLIFXAutoReconnect
+        savedLightEntries = []
+        savedSelectedLightIDs = []
         save()
     }
 }

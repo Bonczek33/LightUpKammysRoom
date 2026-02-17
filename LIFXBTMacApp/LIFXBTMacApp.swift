@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 extension Notification.Name {
     static let settingsDidChange = Notification.Name("settingsDidChange")
@@ -7,27 +8,62 @@ extension Notification.Name {
 @main
 struct LIFXBTMacApp: App {
     @StateObject private var bt = BluetoothSensorsViewModel()
+    @StateObject private var lifx = LIFXDiscoveryViewModel()
+    @StateObject private var store = UserConfigStore()
+    @StateObject private var auto = AutoColorController()
+    @StateObject private var charts = ChartsViewModel()
 
-    var body: some Scene {
+var body: some Scene {
+     //   WindowGroup("Light Up Kammy's Room") {
+       //     ContentView(bt: bt, lifx: lifx, auto: auto, store: store, charts: charts)
+       // }
         WindowGroup("Light Up Kammy's Room") {
-            ContentView(bt: bt)
+            ContentView(
+                bt: bt,
+                lifx: lifx,
+                auto: auto,
+                store: store,
+                charts: charts
+            )
+            .onAppear {
+                bringMainWindowToFront()
+            }
         }
+    .defaultSize(width: 1000, height: 1000)
+    .defaultPosition(.center)
         // REMOVED: Duplicate Settings menu command
         // macOS automatically creates Settings menu when Settings scene exists
         
         #if swift(>=5.9)
         Settings {
             SettingsView()
+                .frame(width: 1000, height: 600, alignment: .center)
                 .environmentObject(bt)
+                .environmentObject(lifx)
+                .environmentObject(store)
+                .environmentObject(auto)
+                .environmentObject(charts)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 600, height: 600)
+        .defaultSize(width: 1000, height: 600)
+        .defaultPosition(.center)
+        .windowResizability(.contentSize)
         #else
         Settings {
             SettingsView()
                 .environmentObject(bt)
         }
         #endif
+
+        // Menu bar quick controls (macOS 13+)
+        if #available(macOS 13.0, *) {
+            MenuBarExtra("Lights", systemImage: "lightbulb") {
+                MenuBarLightsView()
+                    .environmentObject(lifx)
+                    .environmentObject(store)
+            }
+        }
+
     }
 }
 
@@ -63,6 +99,13 @@ struct SettingsView: View {
     }
 }
 
+private func bringMainWindowToFront() {
+    DispatchQueue.main.async {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first?.makeKeyAndOrderFront(nil)
+    }
+}
+
 // MARK: - General Settings Tab
 
 struct GeneralSettingsTab: View {
@@ -76,6 +119,9 @@ struct GeneralSettingsTab: View {
     @State private var modulateIntensityWithHR: Bool = UserConfigStore.defaultsModulateIntensityWithHR
     @State private var minIntensityPercent: Double = UserConfigStore.defaultsMinIntensityPercent
     @State private var maxIntensityPercent: Double = UserConfigStore.defaultsMaxIntensityPercent
+    @State private var modulateIntensityWithPower: Bool = UserConfigStore.defaultsModulateIntensityWithPower
+    @State private var minPowerIntensityPercent: Double = UserConfigStore.defaultsMinPowerIntensityPercent
+    @State private var maxPowerIntensityPercent: Double = UserConfigStore.defaultsMaxPowerIntensityPercent
     @State private var powerMovingAverageSeconds: Double = UserConfigStore.defaultsPowerMovingAverageSeconds
     
     let intFormatter: NumberFormatter = {
@@ -111,22 +157,47 @@ struct GeneralSettingsTab: View {
         modulateIntensityWithHR = decoded.modulateIntensityWithHR
         minIntensityPercent = decoded.minIntensityPercent
         maxIntensityPercent = decoded.maxIntensityPercent
+        modulateIntensityWithPower = decoded.modulateIntensityWithPower ?? UserConfigStore.defaultsModulateIntensityWithPower
+        minPowerIntensityPercent = decoded.minPowerIntensityPercent ?? UserConfigStore.defaultsMinPowerIntensityPercent
+        maxPowerIntensityPercent = decoded.maxPowerIntensityPercent ?? UserConfigStore.defaultsMaxPowerIntensityPercent
         powerMovingAverageSeconds = decoded.powerMovingAverageSeconds
     }
     
     private func saveSettings() {
-        // Create config with current values
-        let config = PersistedUserConfig(
-            dateOfBirth: dateOfBirth,
-            ftp: max(50, min(500, ftp)),
-            weightKg: max(30.0, min(200.0, weightKg)),
-            autoSourceRaw: "Off", // Will be loaded from main app
-            powerMovingAverageSeconds: max(0.0, min(10.0, powerMovingAverageSeconds)),
-            aliasesByID: [:], // Will be merged from main app
-            modulateIntensityWithHR: modulateIntensityWithHR,
-            minIntensityPercent: max(0.0, min(100.0, minIntensityPercent)),
-            maxIntensityPercent: max(0.0, min(100.0, maxIntensityPercent))
-        )
+        // Read-modify-write: preserve fields owned by other tabs (BT, LIFX, auto source, aliases)
+        var config: PersistedUserConfig
+        if let data = configData,
+           let existing = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) {
+            config = existing
+        } else {
+            // No existing config — create a fresh one with safe defaults for non-General fields
+            config = PersistedUserConfig(
+                dateOfBirth: dateOfBirth,
+                ftp: ftp,
+                weightKg: weightKg,
+                autoSourceRaw: "Off",
+                powerMovingAverageSeconds: powerMovingAverageSeconds,
+                aliasesByID: [:],
+                modulateIntensityWithHR: modulateIntensityWithHR,
+                minIntensityPercent: minIntensityPercent,
+                maxIntensityPercent: maxIntensityPercent,
+                modulateIntensityWithPower: modulateIntensityWithPower,
+                minPowerIntensityPercent: minPowerIntensityPercent,
+                maxPowerIntensityPercent: maxPowerIntensityPercent
+            )
+        }
+        
+        // Only update the fields owned by General Settings
+        config.dateOfBirth = dateOfBirth
+        config.ftp = max(50, min(500, ftp))
+        config.weightKg = max(30.0, min(200.0, weightKg))
+        config.powerMovingAverageSeconds = max(0.0, min(10.0, powerMovingAverageSeconds))
+        config.modulateIntensityWithHR = modulateIntensityWithHR
+        config.minIntensityPercent = max(0.0, min(100.0, minIntensityPercent))
+        config.maxIntensityPercent = max(0.0, min(100.0, maxIntensityPercent))
+        config.modulateIntensityWithPower = modulateIntensityWithPower
+        config.minPowerIntensityPercent = max(0.0, min(100.0, minPowerIntensityPercent))
+        config.maxPowerIntensityPercent = max(0.0, min(100.0, maxPowerIntensityPercent))
         
         if let encoded = try? JSONEncoder().encode(config) {
             configData = encoded
@@ -136,7 +207,7 @@ struct GeneralSettingsTab: View {
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
     
-    // FIXED: Proper reset implementation
+    // FIXED: Proper reset implementation — preserves BT and LIFX fields
     private func resetToDefaults() {
         // Reset all state variables to defaults
         dateOfBirth = UserConfigStore.defaultsDOB
@@ -145,20 +216,44 @@ struct GeneralSettingsTab: View {
         modulateIntensityWithHR = UserConfigStore.defaultsModulateIntensityWithHR
         minIntensityPercent = UserConfigStore.defaultsMinIntensityPercent
         maxIntensityPercent = UserConfigStore.defaultsMaxIntensityPercent
+        modulateIntensityWithPower = UserConfigStore.defaultsModulateIntensityWithPower
+        minPowerIntensityPercent = UserConfigStore.defaultsMinPowerIntensityPercent
+        maxPowerIntensityPercent = UserConfigStore.defaultsMaxPowerIntensityPercent
         powerMovingAverageSeconds = UserConfigStore.defaultsPowerMovingAverageSeconds
         
-        // Create default config
-        let config = PersistedUserConfig(
-            dateOfBirth: UserConfigStore.defaultsDOB,
-            ftp: UserConfigStore.defaultsFTP,
-            weightKg: UserConfigStore.defaultsWeightKg,
-            autoSourceRaw: "Off",
-            powerMovingAverageSeconds: UserConfigStore.defaultsPowerMovingAverageSeconds,
-            aliasesByID: [:],
-            modulateIntensityWithHR: UserConfigStore.defaultsModulateIntensityWithHR,
-            minIntensityPercent: UserConfigStore.defaultsMinIntensityPercent,
-            maxIntensityPercent: UserConfigStore.defaultsMaxIntensityPercent
-        )
+        // Read-modify-write: preserve BT and LIFX fields
+        var config: PersistedUserConfig
+        if let data = configData,
+           let existing = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) {
+            config = existing
+        } else {
+            config = PersistedUserConfig(
+                dateOfBirth: UserConfigStore.defaultsDOB,
+                ftp: UserConfigStore.defaultsFTP,
+                weightKg: UserConfigStore.defaultsWeightKg,
+                autoSourceRaw: "Off",
+                powerMovingAverageSeconds: UserConfigStore.defaultsPowerMovingAverageSeconds,
+                aliasesByID: [:],
+                modulateIntensityWithHR: UserConfigStore.defaultsModulateIntensityWithHR,
+                minIntensityPercent: UserConfigStore.defaultsMinIntensityPercent,
+                maxIntensityPercent: UserConfigStore.defaultsMaxIntensityPercent,
+                modulateIntensityWithPower: UserConfigStore.defaultsModulateIntensityWithPower,
+                minPowerIntensityPercent: UserConfigStore.defaultsMinPowerIntensityPercent,
+                maxPowerIntensityPercent: UserConfigStore.defaultsMaxPowerIntensityPercent
+            )
+        }
+        
+        // Only reset General Settings fields
+        config.dateOfBirth = UserConfigStore.defaultsDOB
+        config.ftp = UserConfigStore.defaultsFTP
+        config.weightKg = UserConfigStore.defaultsWeightKg
+        config.powerMovingAverageSeconds = UserConfigStore.defaultsPowerMovingAverageSeconds
+        config.modulateIntensityWithHR = UserConfigStore.defaultsModulateIntensityWithHR
+        config.minIntensityPercent = UserConfigStore.defaultsMinIntensityPercent
+        config.maxIntensityPercent = UserConfigStore.defaultsMaxIntensityPercent
+        config.modulateIntensityWithPower = UserConfigStore.defaultsModulateIntensityWithPower
+        config.minPowerIntensityPercent = UserConfigStore.defaultsMinPowerIntensityPercent
+        config.maxPowerIntensityPercent = UserConfigStore.defaultsMaxPowerIntensityPercent
         
         if let encoded = try? JSONEncoder().encode(config) {
             configData = encoded
@@ -211,7 +306,7 @@ struct GeneralSettingsTab: View {
                                     Text("FTP:")
                                         .frame(width: 120, alignment: .trailing)
                                     
-                                    TextField("150", value: $ftp, formatter: intFormatter)
+                                    TextField("", value: $ftp, formatter: intFormatter)
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
                                     
@@ -226,7 +321,8 @@ struct GeneralSettingsTab: View {
                                     Text("Weight:")
                                         .frame(width: 120, alignment: .trailing)
                                     
-                                    TextField("50.0", value: $weightKg, formatter: doubleFormatter)
+
+                                    TextField("", value: $weightKg, formatter: doubleFormatter)
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
                                     
@@ -246,13 +342,13 @@ struct GeneralSettingsTab: View {
                         
                         Divider()
                         
-                        // Intensity Modulation Settings (for Power mode)
-                        GroupBox(label: Text("Intensity Modulation").font(.subheadline)) {
+                        // Intensity Modulation Settings (HR-based)
+                        GroupBox(label: Text("Intensity Modulation (Heart Rate)").font(.subheadline)) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Toggle("Modulate intensity with heart rate when using power", isOn: $modulateIntensityWithHR)
+                                Toggle("Modulate intensity with heart rate", isOn: $modulateIntensityWithHR)
                                     .toggleStyle(.switch)
                                 
-                                Text("When enabled and using Power mode, light brightness changes based on your heart rate position within the current power zone.")
+                                Text("When enabled, light brightness changes based on your heart rate position within the current zone. Works with both Power and Heart Rate source modes.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -286,10 +382,71 @@ struct GeneralSettingsTab: View {
                                                 .frame(width: 40, alignment: .trailing)
                                         }
                                         
-                                        Text("Light brightness will vary between \(Int(minIntensityPercent))% and \(Int(maxIntensityPercent))% based on your heart rate within each power zone.")
+                                        Text("Light brightness will vary between \(Int(minIntensityPercent))% and \(Int(maxIntensityPercent))% based on your heart rate within each zone.")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                             .italic()
+                                    }
+                                }
+                            }
+                            .padding(8)
+                        }
+                        
+                        // Intensity Modulation Settings (Power-based)
+                        GroupBox(label: Text("Intensity Modulation (Power)").font(.subheadline)) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Toggle("Modulate intensity with power", isOn: $modulateIntensityWithPower)
+                                    .toggleStyle(.switch)
+                                
+                                Text("When enabled, light brightness changes based on your power position within the current zone. Works with both Heart Rate and Power source modes.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                if modulateIntensityWithPower {
+                                    VStack(spacing: 12) {
+                                        Divider()
+                                        
+                                        HStack {
+                                            Text("Min Intensity:")
+                                                .frame(width: 120, alignment: .trailing)
+                                            
+                                            Slider(value: $minPowerIntensityPercent, in: 0...100, step: 5)
+                                                .frame(width: 200)
+                                            
+                                            Text("\(Int(minPowerIntensityPercent))%")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 40, alignment: .trailing)
+                                        }
+                                        
+                                        HStack {
+                                            Text("Max Intensity:")
+                                                .frame(width: 120, alignment: .trailing)
+                                            
+                                            Slider(value: $maxPowerIntensityPercent, in: 0...100, step: 5)
+                                                .frame(width: 200)
+                                            
+                                            Text("\(Int(maxPowerIntensityPercent))%")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 40, alignment: .trailing)
+                                        }
+                                        
+                                        Text("Light brightness will vary between \(Int(minPowerIntensityPercent))% and \(Int(maxPowerIntensityPercent))% based on your power within each zone.")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .italic()
+                                    }
+                                }
+                                
+                                if modulateIntensityWithHR && modulateIntensityWithPower {
+                                    Divider()
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "info.circle")
+                                            .foregroundColor(.blue)
+                                        Text("Both HR and Power modulation are enabled. When source is Power, HR modulation takes priority. When source is Heart Rate, Power modulation takes priority.")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
                                     }
                                 }
                             }
@@ -358,16 +515,6 @@ struct GeneralSettingsTab: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        Divider()
-                        
-                        HStack {
-                            Spacer()
-                            
-                            Button("Save Settings") {
-                                saveSettings()
-                            }
-                            .keyboardShortcut("s", modifiers: .command)
-                        }
                     }
                     .padding()
                 }
@@ -375,6 +522,16 @@ struct GeneralSettingsTab: View {
             .onAppear {
                 loadSettings()
             }
+            .onChange(of: dateOfBirth) { _, _ in saveSettings() }
+            .onChange(of: ftp) { _, _ in saveSettings() }
+            .onChange(of: weightKg) { _, _ in saveSettings() }
+            .onChange(of: modulateIntensityWithHR) { _, _ in saveSettings() }
+            .onChange(of: minIntensityPercent) { _, _ in saveSettings() }
+            .onChange(of: maxIntensityPercent) { _, _ in saveSettings() }
+            .onChange(of: modulateIntensityWithPower) { _, _ in saveSettings() }
+            .onChange(of: minPowerIntensityPercent) { _, _ in saveSettings() }
+            .onChange(of: maxPowerIntensityPercent) { _, _ in saveSettings() }
+            .onChange(of: powerMovingAverageSeconds) { _, _ in saveSettings() }
             .alert("Reset All Settings?", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
@@ -695,48 +852,160 @@ struct BluetoothSettingsTab: View {
 // MARK: - Lights Settings Tab
 
 struct LightsSettingsTab: View {
+    @EnvironmentObject var lifx: LIFXDiscoveryViewModel
+    @EnvironmentObject var store: UserConfigStore
+    @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
+
+    @State private var autoReconnect: Bool = true
+    @State private var savedLightNames: [String] = []
+    @State private var savedSelectedCount: Int = 0
+
+    private func loadLightsSettings() {
+        guard let data = configData,
+              let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        autoReconnect = decoded.lifxAutoReconnect ?? true
+        let entries = decoded.savedLightEntries ?? []
+        // Show alias if available, otherwise label, otherwise ID
+        savedLightNames = entries.map { entry in
+            let alias = decoded.aliasesByID[entry.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !alias.isEmpty { return alias }
+            if !entry.label.isEmpty { return entry.label }
+            return entry.id
+        }
+        savedSelectedCount = (decoded.savedSelectedLightIDs ?? []).count
+    }
+
+    private func saveLIFXAutoReconnect(_ value: Bool) {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.lifxAutoReconnect = value
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func saveCurrentLights() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+
+        // Snapshot all discovered lights
+        decoded.savedLightEntries = lifx.lights.map { light in
+            SavedLightEntry(id: light.id, ip: light.ip, label: light.label)
+        }
+        // Snapshot current selection
+        decoded.savedSelectedLightIDs = Array(lifx.selectedIDs)
+
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+
+        // Update local UI state
+        savedLightNames = lifx.lights.map { lifx.displayName(for: $0) }
+        savedSelectedCount = lifx.selectedIDs.count
+
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+        print("💾 [LIFX] Saved \(lifx.lights.count) light(s), \(lifx.selectedIDs.count) selected")
+    }
+
+    private func forgetSavedLights() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.savedLightEntries = nil
+        decoded.savedSelectedLightIDs = nil
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        savedLightNames = []
+        savedSelectedCount = 0
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+        print("🗑️ [LIFX] Forgot saved lights")
+    }
+
     var body: some View {
-        ScrollView {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("LIFX Settings")
-                            .font(.headline)
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Network Requirements")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("• LIFX bulbs must be on the same WiFi network")
-                            Text("• Local network access permission required (macOS 15+)")
-                            Text("• UDP port 56700 must be accessible")
-                            Text("• Firewall should allow incoming connections")
+        VStack(alignment: .leading, spacing: 12) {
+            Text("LIFX Lights")
+                .font(.headline)
+
+            // Auto-reconnect settings
+            GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Automatically reconnect to last used lights on app start", isOn: $autoReconnect)
+                        .toggleStyle(.switch)
+                        .onChange(of: autoReconnect) { _, newValue in
+                            saveLIFXAutoReconnect(newValue)
                         }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Troubleshooting")
-                                .font(.subheadline)
+
+                    if savedLightNames.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "lightbulb.slash")
                                 .foregroundColor(.secondary)
-                            
-                            Text("If lights aren't discovered:")
-                            Text("• Check System Settings → Privacy & Security → Local Network")
-                            Text("• Ensure this app has permission enabled")
-                            Text("• Check your WiFi network allows device discovery")
-                            Text("• Try restarting the LIFX bulbs")
+                                .font(.caption)
+                            Text("No saved lights")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Saved lights (\(savedSelectedCount) selected):")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            ForEach(savedLightNames, id: \.self) { name in
+                                HStack(spacing: 6) {
+                                    Image(systemName: "lightbulb.fill")
+                                        .foregroundColor(.yellow)
+                                        .font(.caption)
+                                    Text(name)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
                     }
-                    .padding()
+
+                    HStack(spacing: 12) {
+                        Button("Save Current Lights") {
+                            saveCurrentLights()
+                        }
+                        .disabled(lifx.lights.isEmpty)
+                        .controlSize(.small)
+
+                        if !savedLightNames.isEmpty {
+                            Button("Forget Saved Lights") {
+                                forgetSavedLights()
+                            }
+                            .foregroundColor(.red)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    Text("Discover your lights, then tap \"Save Current Lights\" to remember them and their selection for automatic reconnection.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
+                .padding(8)
             }
+
+            LIFXPanel(vm: lifx, store: store)
+                .frame(minHeight: 420)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Troubleshooting")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Text("• LIFX bulbs must be on the same Wi‑Fi network\n• Local Network permission is required\n• UDP port 56700 must be reachable\n• Firewall should allow incoming connections")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .onAppear {
+            store.load()
+            lifx.aliasByID = store.aliasesByID
+            loadLightsSettings()
         }
     }
 }
@@ -745,59 +1014,15 @@ struct LightsSettingsTab: View {
 
 struct ZonesSettingsTab: View {
     var body: some View {
-        ScrollView {
-            Form {
-                Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Training Zones")
-                            .font(.headline)
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Zwift Color Scheme")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 12) {
-                                ZoneColorIndicator(color: .gray, name: "Z1")
-                                ZoneColorIndicator(color: .blue, name: "Z2")
-                                ZoneColorIndicator(color: .green, name: "Z3")
-                                ZoneColorIndicator(color: .yellow, name: "Z4")
-                                ZoneColorIndicator(color: .orange, name: "Z5")
-                                ZoneColorIndicator(color: .red, name: "Z6")
-                                ZoneColorIndicator(color: .purple, name: "Z7")
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Zone Ranges")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("Z1: 0-60% (Easy) - Grey")
-                            Text("Z2: 60-70% (Endurance) - Blue")
-                            Text("Z3: 70-80% (Tempo) - Green")
-                            Text("Z4: 80-90% (Threshold) - Yellow")
-                            Text("Z5: 90-100% (VO2 Max) - Orange")
-                            Text("Z6: 100-110% (Anaerobic) - Red")
-                            Text("Z7: 110%+ (Sprint) - Purple")
-                        }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        
-                        Divider()
-                        
-                        Text("Zones are calculated based on your FTP (power) or max heart rate (age-based formula: 220 - age).")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                }
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Zones")
+                .font(.headline)
+            Text("Configure zone colors and thresholds here. (Coming soon)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
         }
+        .padding()
     }
 }
 
@@ -826,15 +1051,15 @@ struct AboutSettingsTab: View {
             Form {
                 Section {
                     VStack(spacing: 16) {
-                        Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.yellow)
+                        Image(nsImage: NSApp.applicationIconImage)
+                            .resizable()
+                            .frame(width: 60, height: 60)
                         
                         Text("Light Up Kammy's Room")
                             .font(.title2)
                             .fontWeight(.bold)
                         
-                        Text("Version 1.0.0")
+                        Text(appVersionString)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         
@@ -878,4 +1103,10 @@ struct AboutSettingsTab: View {
             }
         }
     }
+}
+
+private var appVersionString: String {
+    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    return "Version \(version) (\(build))"
 }

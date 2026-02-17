@@ -46,23 +46,11 @@ struct LightRow: View {
     let alias: String
     let isSelected: Bool
     let lifxColor: LIFXColor?
-    let brightness: UInt16
 
     let onToggleSelect: () -> Void
-    let onBrightnessChanged: (UInt16) -> Void
     let onAliasChanged: (String) -> Void
 
     @State private var aliasDraft: String = ""
-
-    private var brightnessBinding: Binding<Double> {
-        Binding(
-            get: { Double(brightness) },
-            set: { newValue in
-                let v = UInt16(max(0, min(65535, Int(newValue.rounded()))))
-                onBrightnessChanged(v)
-            }
-        )
-    }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -106,19 +94,6 @@ struct LightRow: View {
                 Text(!isSelected ? "Select to enable" : "")
                     .font(.caption2)
                     .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                Text("Brightness").font(.caption).foregroundColor(.secondary).frame(width: 80, alignment: .leading)
-                Slider(value: brightnessBinding, in: 0...65535, step: 256)
-                    .frame(maxWidth: 460)
-                    .disabled(!isSelected)
-                Text("\(brightness)")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundColor(.secondary)
-                    .frame(width: 90, alignment: .trailing)
-                Spacer()
             }
         }
         .padding(.vertical, 6)

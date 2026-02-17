@@ -1,0 +1,81 @@
+//
+//  MenuBarLightsView.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 2/13/26.
+//
+
+
+import SwiftUI
+
+@available(macOS 13.0, *)
+struct MenuBarLightsView: View {
+    @EnvironmentObject var lifx: LIFXDiscoveryViewModel
+    @EnvironmentObject var store: UserConfigStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Button("Scan") { lifx.scan() }
+                Spacer()
+                Text(lifx.status)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 8) {
+                Button("All") { lifx.selectAll() }
+                    .disabled(lifx.lights.isEmpty)
+                Button("None") { lifx.selectNone() }
+                    .disabled(lifx.selectedIDs.isEmpty)
+                Spacer()
+                Text("\(lifx.selectedIDs.count) selected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                Button("On") { lifx.setPowerForSelected(true) }
+                    .disabled(lifx.selectedIDs.isEmpty)
+                Button("Off") { lifx.setPowerForSelected(false) }
+                    .disabled(lifx.selectedIDs.isEmpty)
+                Spacer()
+            }
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(lifx.lights) { light in
+                        Toggle(
+                            isOn: Binding(
+                                get: { lifx.selectedIDs.contains(light.id) },
+                                set: { _ in lifx.toggleSelection(for: light) }
+                            )
+                        ) {
+                            Text(lifx.displayName(for: light))
+                                .lineLimit(1)
+                        }
+                        .toggleStyle(.checkbox)
+                    }
+
+                    if lifx.lights.isEmpty {
+                        Text("No lights found yet.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 6)
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .frame(width: 300, height: 280)
+        }
+        .padding(12)
+        .onAppear {
+            // Ensure aliases are available for display names
+            store.load()
+            lifx.aliasByID = store.aliasesByID
+        }
+    }
+}

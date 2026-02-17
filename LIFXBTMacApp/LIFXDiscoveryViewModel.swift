@@ -85,6 +85,49 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         status = "Idle"
     }
 
+    /// Auto-reconnect: populate lights from saved entries, scan to refresh IPs, then restore selection.
+    func autoReconnectLights(savedEntries: [SavedLightEntry], savedSelectedIDs: [String]) {
+        guard !savedEntries.isEmpty else { return }
+
+        // Populate lights list from saved data so the UI shows them immediately
+        for entry in savedEntries {
+            let light = LIFXLight(id: entry.id, label: entry.label, ip: entry.ip)
+            if !lights.contains(where: { $0.id == entry.id }) {
+                lights.append(light)
+            }
+            if brightnessByID[light.id] == nil { brightnessByID[light.id] = 32768 }
+        }
+
+        // Restore selection
+        selectedIDs = Set(savedSelectedIDs)
+
+        // Run a scan to refresh IPs and discover any new lights
+        status = "Reconnecting saved lights…"
+        print("🔄 [LIFX] Auto-reconnect: restoring \(savedEntries.count) light(s), \(savedSelectedIDs.count) selected")
+
+        discovery.startScan(
+            onStatus: { [weak self] text in Task { @MainActor in self?.status = text } },
+            onLight: { [weak self] light in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
+                        self.lights[idx] = light  // Update IP/label from fresh scan
+                    } else {
+                        self.lights.append(light)
+                    }
+                    if self.brightnessByID[light.id] == nil { self.brightnessByID[light.id] = 32768 }
+                }
+            }
+        )
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            self.discovery.stop()
+            self.status = "Reconnected (poll 2s)"
+            self.startPollingAllLights(everySeconds: self.pollingIntervalSeconds)
+        }
+    }
+
     // Selection
     func toggleSelection(for light: LIFXLight) {
         if selectedIDs.contains(light.id) { selectedIDs.remove(light.id) }
