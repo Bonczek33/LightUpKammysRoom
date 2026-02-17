@@ -53,6 +53,7 @@ struct LightRow: View {
     let alias: String
     let isSelected: Bool
     let lifxColor: LIFXColor?
+    let isPoweredOn: Bool?
 
     let onToggleSelect: () -> Void
     let onAliasChanged: (String) -> Void
@@ -69,6 +70,9 @@ struct LightRow: View {
 
                 LEDDot(fill: colorLEDColor(lifxColor), stroke: .secondary, size: 12)
                     .help(lifxColor != nil ? "Current color reported by the light." : "No color data — light may be off or unreachable.")
+
+                // Power on/off indicator
+                PowerIndicator(isPoweredOn: isPoweredOn)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displayName)
@@ -97,9 +101,12 @@ struct LightRow: View {
                                       alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             .help("Save the name for this light.")
 
-                        Button("Clear") { aliasDraft = ""; onAliasChanged("") }
+                        Button("Reset") {
+                            onAliasChanged("")
+                            aliasDraft = light.label.isEmpty ? "" : light.label
+                        }
                             .disabled(alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .help("Remove the custom name. The light's built-in label will be shown instead.")
+                            .help("Reset to the light's built-in label.")
                     }
                 }
 
@@ -111,9 +118,13 @@ struct LightRow: View {
             }
         }
         .padding(.vertical, 6)
-        .onAppear { aliasDraft = alias }
+        .onAppear { aliasDraft = alias.isEmpty ? light.label : alias }
         .onChange(of: alias) { oldValue, newValue in
-            if aliasDraft != newValue { aliasDraft = newValue }
+            if newValue.isEmpty {
+                aliasDraft = light.label
+            } else if aliasDraft != newValue {
+                aliasDraft = newValue
+            }
         }
     }
 
@@ -137,3 +148,67 @@ struct LEDDot: View {
     }
 }
 
+struct PowerIndicator: View {
+    let isPoweredOn: Bool?
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: iconName)
+                .font(.caption)
+                .foregroundColor(iconColor)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(iconColor)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(bgColor)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .help(tooltip)
+    }
+
+    private var iconName: String {
+        switch isPoweredOn {
+        case true:  return "power"
+        case false: return "power"
+        case nil:   return "questionmark.circle"
+        case .some(_): return "questionmark.circle"
+        }
+    }
+
+    private var label: String {
+        switch isPoweredOn {
+        case true:  return "ON"
+        case false: return "OFF"
+        case nil:   return "?"
+        case .some(_): return "?"
+        }
+    }
+
+    private var iconColor: Color {
+        switch isPoweredOn {
+        case true:  return .green
+        case false: return .secondary
+        case nil:   return .secondary.opacity(0.5)
+        case .some(_): return .secondary.opacity(0.5)
+        }
+    }
+
+    private var bgColor: Color {
+        switch isPoweredOn {
+        case true:  return .green.opacity(0.12)
+        case false: return .secondary.opacity(0.08)
+        case nil:   return .clear
+        case .some(_): return .clear
+        }
+    }
+
+    private var tooltip: String {
+        switch isPoweredOn {
+        case true:  return "Light is powered on."
+        case false: return "Light is powered off."
+        case nil:   return "Power state unknown — no response yet."
+        case .some(_): return "Power state unknown."
+        }
+    }
+}

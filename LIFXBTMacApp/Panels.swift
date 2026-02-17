@@ -302,13 +302,15 @@ struct LIFXPanel: View {
                     alias: vm.aliasByID[light.id] ?? "",
                     isSelected: vm.selectedIDs.contains(light.id),
                     lifxColor: vm.colorByID[light.id],
+                    isPoweredOn: vm.powerByID[light.id],
                     onToggleSelect: { vm.toggleSelection(for: light) },
                     onAliasChanged: { newAlias in
                         vm.setAlias(lightID: light.id, alias: newAlias)
+                        store.aliasesByID = vm.aliasByID
+                        store.save()
                     }
                 )
             }
         }
     }
 }
-
