@@ -58,8 +58,10 @@ struct LightRow: View {
                 Toggle("", isOn: .init(get: { isSelected }, set: { _ in onToggleSelect() }))
                     .toggleStyle(.checkbox)
                     .labelsHidden()
+                    .help("Select this light to include it in auto color control.")
 
                 LEDDot(fill: colorLEDColor(lifxColor), stroke: .secondary, size: 12)
+                    .help(lifxColor != nil ? "Current color reported by the light." : "No color data — light may be off or unreachable.")
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displayName)
@@ -67,7 +69,9 @@ struct LightRow: View {
 
                     HStack(spacing: 10) {
                         Text(light.ip).font(.caption).foregroundColor(.secondary)
+                            .help("IP address on your local network. May change if DHCP assigns a new address.")
                         Text(light.id).font(.caption2).foregroundColor(.secondary)
+                            .help("Hardware serial number (MAC-based). This never changes.")
                     }
 
                     HStack(spacing: 10) {
@@ -79,13 +83,16 @@ struct LightRow: View {
                         ))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 280)
+                        .help("Give this light a friendly name. Stored locally on your Mac, not on the bulb.")
 
                         Button("Set") { onAliasChanged(aliasDraft) }
                             .disabled(aliasDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
                                       alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .help("Save the name for this light.")
 
                         Button("Clear") { aliasDraft = ""; onAliasChanged("") }
                             .disabled(alias.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .help("Remove the custom name. The light's built-in label will be shown instead.")
                     }
                 }
 

@@ -25,6 +25,12 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     // IMPORTANT: Keep debounce tasks on MainActor too.
     private var brightnessDebounce: [String: Task<Void, Never>] = [:]
 
+    // Identify lights state
+    @Published private(set) var isIdentifying: Bool = false
+    @Published private(set) var identifyingLightID: String? = nil
+    @Published private(set) var identifyingIndex: Int? = nil
+    private var identifyTask: Task<Void, Never>?
+
     private func isSelected(_ lightID: String) -> Bool { selectedIDs.contains(lightID) }
 
     func displayName(for light: LIFXLight) -> String {
@@ -96,6 +102,12 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 lights.append(light)
             }
             if brightnessByID[light.id] == nil { brightnessByID[light.id] = 32768 }
+            
+            // Restore alias if it was saved and not already set
+            if let alias = entry.alias, !alias.isEmpty,
+               (aliasByID[entry.id]?.isEmpty ?? true) {
+                aliasByID[entry.id] = alias
+            }
         }
 
         // Restore selection
@@ -143,6 +155,71 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         for light in selected {
             control.setPower(ip: light.ip, targetHex: light.id, on: on, durationMs: 0)
             powerByID[light.id] = on
+        }
+    }
+
+    /// Identify lights one at a time: each light blinks for 5s (1s on, 0.5s off), then the next light starts
+    func identifyLights() {
+        guard !lights.isEmpty else { return }
+        
+        identifyTask?.cancel()
+        isIdentifying = true
+        identifyingIndex = 0
+        
+        let allLights = lights
+        let ctrl = control
+        
+        identifyTask = Task { [weak self] in
+            let onDuration: UInt64 = 1_000_000_000   // 1s
+            let offDuration: UInt64 = 500_000_000     // 0.5s
+            let perLightDuration: Double = 5.0        // 5s per light
+            
+            for (index, light) in allLights.enumerated() {
+                guard !Task.isCancelled else { break }
+                
+                await MainActor.run {
+                    self?.identifyingLightID = light.id
+                    self?.identifyingIndex = index
+                }
+                
+                // Blink this light for 5 seconds
+                let start = Date()
+                while Date().timeIntervalSince(start) < perLightDuration {
+                    guard !Task.isCancelled else { break }
+                    
+                    // ON
+                    ctrl.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: 0)
+                    do { try await Task.sleep(nanoseconds: onDuration) } catch { break }
+                    
+                    guard !Task.isCancelled else { break }
+                    
+                    // OFF
+                    ctrl.setPower(ip: light.ip, targetHex: light.id, on: false, durationMs: 0)
+                    do { try await Task.sleep(nanoseconds: offDuration) } catch { break }
+                }
+                
+                // Leave this light ON before moving to the next
+                ctrl.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: 0)
+            }
+            
+            await MainActor.run {
+                self?.isIdentifying = false
+                self?.identifyingLightID = nil
+                self?.identifyingIndex = nil
+            }
+        }
+    }
+    
+    func stopIdentify() {
+        identifyTask?.cancel()
+        identifyTask = nil
+        isIdentifying = false
+        identifyingLightID = nil
+        identifyingIndex = nil
+        
+        // Leave lights on
+        for light in lights {
+            control.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: 0)
         }
     }
 

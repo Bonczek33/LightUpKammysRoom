@@ -46,6 +46,7 @@ struct ChartsPanel: View {
             HStack(spacing: 12) {
                 Text("Performance Charts")
                     .font(.headline)
+                    .help("Real-time plots of sensor data. Up to 5 minutes of history at 1 sample/second.")
                 
                 Picker("Chart Type", selection: $selectedChart) {
                     ForEach(ChartType.allCases) { type in
@@ -55,6 +56,7 @@ struct ChartsPanel: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 500)
+                .help("Switch between Heart Rate, Power, Cadence, and Power-to-Weight ratio views.")
                 
                 Spacer()
                 
@@ -63,6 +65,7 @@ struct ChartsPanel: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundColor(.secondary)
+                .help("Clear all chart history. New data will start accumulating immediately.")
             }
             
             // Chart display
@@ -105,6 +108,7 @@ struct ChartsPanel: View {
                         Text("Distribution")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                            .help("Histogram showing how much time you've spent at each intensity level.")
                         Spacer()
                     }
                     .padding(.horizontal, 16)

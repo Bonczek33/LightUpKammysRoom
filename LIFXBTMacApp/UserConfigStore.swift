@@ -37,6 +37,7 @@ struct SavedLightEntry: Codable, Hashable {
     let id: String      // MAC-based hex ID
     let ip: String      // Last known IP
     let label: String   // Device label at time of save
+    let alias: String?  // User-assigned name at time of save
 }
 
 @MainActor
@@ -112,6 +113,16 @@ final class UserConfigStore: ObservableObject {
             lifxAutoReconnect = decoded.lifxAutoReconnect ?? Self.defaultsLIFXAutoReconnect
             savedLightEntries = decoded.savedLightEntries ?? []
             savedSelectedLightIDs = decoded.savedSelectedLightIDs ?? []
+            
+            // Merge aliases from saved light entries into the canonical aliases dictionary
+            // so they're available immediately at startup before any scan completes
+            for entry in savedLightEntries {
+                if let alias = entry.alias, !alias.isEmpty {
+                    if aliasesByID[entry.id]?.isEmpty ?? true {
+                        aliasesByID[entry.id] = alias
+                    }
+                }
+            }
         }
     }
 

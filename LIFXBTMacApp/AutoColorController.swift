@@ -294,7 +294,9 @@ final class AutoColorController: ObservableObject {
                 return UInt16(max(0, min(65535, intensity * 65535.0)))
             } else if modulateIntensityWithPower, let wRaw = bt.powerWatts {
                 let ftpSafe = max(1, ftp)
-                let powerRatio = Double(wRaw) / Double(ftpSafe)
+                // Apply moving-average smoothing (same window as zone control)
+                let wSmoothed = pushPowerSample(wRaw)
+                let powerRatio = Double(wSmoothed) / Double(ftpSafe)
                 let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
                 return UInt16(max(0, min(65535, intensity * 65535.0)))
@@ -305,7 +307,9 @@ final class AutoColorController: ObservableObject {
             // or with HR position within zone
             if modulateIntensityWithPower, let wRaw = bt.powerWatts {
                 let ftpSafe = max(1, ftp)
-                let powerRatio = Double(wRaw) / Double(ftpSafe)
+                // Apply moving-average smoothing to power for intensity modulation
+                let wSmoothed = pushPowerSample(wRaw)
+                let powerRatio = Double(wSmoothed) / Double(ftpSafe)
                 let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
                 return UInt16(max(0, min(65535, intensity * 65535.0)))

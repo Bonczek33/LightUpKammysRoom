@@ -289,6 +289,7 @@ struct GeneralSettingsTab: View {
                                     .labelsHidden()
                                     .datePickerStyle(.field)
                                     .frame(width: 140)
+                                    .help("Used to calculate your age-predicted maximum heart rate (220 - age).")
                                     
                                     Spacer()
                                     
@@ -309,6 +310,7 @@ struct GeneralSettingsTab: View {
                                     TextField("", value: $ftp, formatter: intFormatter)
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
+                                        .help("Functional Threshold Power — the max power you can sustain for ~1 hour. Used to calculate power training zones.")
                                     
                                     Text("watts")
                                         .font(.caption)
@@ -325,6 +327,7 @@ struct GeneralSettingsTab: View {
                                     TextField("", value: $weightKg, formatter: doubleFormatter)
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
+                                        .help("Your body weight, used to calculate Power-to-Weight ratio (W/kg) in the performance charts.")
                                     
                                     Text("kg")
                                         .font(.caption)
@@ -347,6 +350,7 @@ struct GeneralSettingsTab: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Toggle("Modulate intensity with heart rate", isOn: $modulateIntensityWithHR)
                                     .toggleStyle(.switch)
+                                    .help("Adjusts light brightness based on where your heart rate falls within the current training zone. Lower HR in the zone = dimmer, higher = brighter.")
                                 
                                 Text("When enabled, light brightness changes based on your heart rate position within the current zone. Works with both Power and Heart Rate source modes.")
                                     .font(.caption)
@@ -362,6 +366,7 @@ struct GeneralSettingsTab: View {
                                             
                                             Slider(value: $minIntensityPercent, in: 0...100, step: 5)
                                                 .frame(width: 200)
+                                                .help("Light brightness at the bottom of a zone. Lower values create more dramatic contrast between zone entry and zone peak.")
                                             
                                             Text("\(Int(minIntensityPercent))%")
                                                 .font(.caption)
@@ -375,6 +380,7 @@ struct GeneralSettingsTab: View {
                                             
                                             Slider(value: $maxIntensityPercent, in: 0...100, step: 5)
                                                 .frame(width: 200)
+                                                .help("Light brightness at the top of a zone. Set below 100% to avoid overly bright lights at peak effort.")
                                             
                                             Text("\(Int(maxIntensityPercent))%")
                                                 .font(.caption)
@@ -397,6 +403,7 @@ struct GeneralSettingsTab: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Toggle("Modulate intensity with power", isOn: $modulateIntensityWithPower)
                                     .toggleStyle(.switch)
+                                    .help("Adjusts light brightness based on where your power falls within the current training zone. Power smoothing is applied before modulation.")
                                 
                                 Text("When enabled, light brightness changes based on your power position within the current zone. Works with both Heart Rate and Power source modes.")
                                     .font(.caption)
@@ -412,6 +419,7 @@ struct GeneralSettingsTab: View {
                                             
                                             Slider(value: $minPowerIntensityPercent, in: 0...100, step: 5)
                                                 .frame(width: 200)
+                                                .help("Light brightness at the bottom of a zone. Lower values create more dramatic contrast between zone entry and zone peak.")
                                             
                                             Text("\(Int(minPowerIntensityPercent))%")
                                                 .font(.caption)
@@ -425,6 +433,7 @@ struct GeneralSettingsTab: View {
                                             
                                             Slider(value: $maxPowerIntensityPercent, in: 0...100, step: 5)
                                                 .frame(width: 200)
+                                                .help("Light brightness at the top of a zone. Set below 100% to avoid overly bright lights at peak effort.")
                                             
                                             Text("\(Int(maxPowerIntensityPercent))%")
                                                 .font(.caption)
@@ -458,16 +467,18 @@ struct GeneralSettingsTab: View {
                         // Power Smoothing Settings
                         GroupBox(label: Text("Power Smoothing").font(.subheadline)) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Moving average window for power-based light control.")
+                                Text("Moving average window for power-based light control and intensity modulation.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
                                 HStack {
                                     Text("Smoothing Window:")
                                         .frame(width: 120, alignment: .trailing)
+                                        .help("Duration of the moving average window applied to power data before it affects zone color and intensity modulation.")
                                     
                                     Slider(value: $powerMovingAverageSeconds, in: 0...5, step: 0.25)
                                         .frame(width: 200)
+                                        .help("0s = raw power used directly. Higher values smooth out power spikes for more stable light behavior.")
                                     
                                     Text(String(format: "%.2fs", powerMovingAverageSeconds))
                                         .font(.caption)
@@ -484,7 +495,7 @@ struct GeneralSettingsTab: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 
-                                Text("Note: Raw power values are always displayed; smoothing only affects light color control.")
+                                Text("Note: Raw power values are always displayed; smoothing affects zone selection, color control, and power intensity modulation.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .italic()
@@ -857,22 +868,41 @@ struct LightsSettingsTab: View {
     @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
 
     @State private var autoReconnect: Bool = true
-    @State private var savedLightNames: [String] = []
-    @State private var savedSelectedCount: Int = 0
+    @State private var savedLightDisplayNames: [String] = []
+
+    private var identifyStatusText: String {
+        if lifx.isIdentifying {
+            if let lightID = lifx.identifyingLightID,
+               let index = lifx.identifyingIndex {
+                let name = lifx.displayName(for: lifx.lights.first(where: { $0.id == lightID }) ?? LIFXLight(id: lightID, label: "", ip: ""))
+                return "Identifying \(index + 1)/\(lifx.lights.count): \(name)"
+            }
+            return "Identifying lights…"
+        }
+        return "Blinks each light for 5 seconds one at a time to help identify them."
+    }
 
     private func loadLightsSettings() {
         guard let data = configData,
               let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
         autoReconnect = decoded.lifxAutoReconnect ?? true
         let entries = decoded.savedLightEntries ?? []
-        // Show alias if available, otherwise label, otherwise ID
-        savedLightNames = entries.map { entry in
-            let alias = decoded.aliasesByID[entry.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !alias.isEmpty { return alias }
-            if !entry.label.isEmpty { return entry.label }
-            return entry.id
+        updateSavedLightsDisplay(entries: entries)
+    }
+
+    /// Build display strings showing "name (ID)" for each saved light
+    private func updateSavedLightsDisplay(entries: [SavedLightEntry]) {
+        savedLightDisplayNames = entries.map { entry in
+            let name: String
+            if let alias = entry.alias, !alias.isEmpty {
+                name = alias
+            } else if !entry.label.isEmpty {
+                name = entry.label
+            } else {
+                name = "Unnamed Light"
+            }
+            return "\(name)  (\(entry.id))"
         }
-        savedSelectedCount = (decoded.savedSelectedLightIDs ?? []).count
     }
 
     private func saveLIFXAutoReconnect(_ value: Bool) {
@@ -889,23 +919,31 @@ struct LightsSettingsTab: View {
         guard let data = configData,
               var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
 
-        // Snapshot all discovered lights
-        decoded.savedLightEntries = lifx.lights.map { light in
-            SavedLightEntry(id: light.id, ip: light.ip, label: light.label)
+        // Only save selected lights (not all discovered)
+        let selectedLights = lifx.lights.filter { lifx.selectedIDs.contains($0.id) }
+        guard !selectedLights.isEmpty else { return }
+
+        decoded.savedLightEntries = selectedLights.map { light in
+            let alias = lifx.aliasByID[light.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return SavedLightEntry(
+                id: light.id,
+                ip: light.ip,
+                label: light.label,
+                alias: (alias?.isEmpty == false) ? alias : nil
+            )
         }
-        // Snapshot current selection
-        decoded.savedSelectedLightIDs = Array(lifx.selectedIDs)
+        // All saved lights are selected by definition
+        decoded.savedSelectedLightIDs = selectedLights.map(\.id)
 
         if let encoded = try? JSONEncoder().encode(decoded) {
             configData = encoded
         }
 
         // Update local UI state
-        savedLightNames = lifx.lights.map { lifx.displayName(for: $0) }
-        savedSelectedCount = lifx.selectedIDs.count
+        updateSavedLightsDisplay(entries: decoded.savedLightEntries ?? [])
 
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-        print("💾 [LIFX] Saved \(lifx.lights.count) light(s), \(lifx.selectedIDs.count) selected")
+        print("💾 [LIFX] Saved \(selectedLights.count) selected light(s)")
     }
 
     private func forgetSavedLights() {
@@ -916,16 +954,16 @@ struct LightsSettingsTab: View {
         if let encoded = try? JSONEncoder().encode(decoded) {
             configData = encoded
         }
-        savedLightNames = []
-        savedSelectedCount = 0
+        savedLightDisplayNames = []
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
         print("🗑️ [LIFX] Forgot saved lights")
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("LIFX Lights")
-                .font(.headline)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("LIFX Lights")
+                    .font(.headline)
 
             // Auto-reconnect settings
             GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
@@ -936,7 +974,7 @@ struct LightsSettingsTab: View {
                             saveLIFXAutoReconnect(newValue)
                         }
 
-                    if savedLightNames.isEmpty {
+                    if savedLightDisplayNames.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "lightbulb.slash")
                                 .foregroundColor(.secondary)
@@ -947,15 +985,15 @@ struct LightsSettingsTab: View {
                         }
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Saved lights (\(savedSelectedCount) selected):")
+                            Text("Saved lights (\(savedLightDisplayNames.count)):")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            ForEach(savedLightNames, id: \.self) { name in
+                            ForEach(savedLightDisplayNames, id: \.self) { displayName in
                                 HStack(spacing: 6) {
                                     Image(systemName: "lightbulb.fill")
                                         .foregroundColor(.yellow)
                                         .font(.caption)
-                                    Text(name)
+                                    Text(displayName)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -967,10 +1005,10 @@ struct LightsSettingsTab: View {
                         Button("Save Current Lights") {
                             saveCurrentLights()
                         }
-                        .disabled(lifx.lights.isEmpty)
+                        .disabled(lifx.selectedIDs.isEmpty)
                         .controlSize(.small)
 
-                        if !savedLightNames.isEmpty {
+                        if !savedLightDisplayNames.isEmpty {
                             Button("Forget Saved Lights") {
                                 forgetSavedLights()
                             }
@@ -979,7 +1017,38 @@ struct LightsSettingsTab: View {
                         }
                     }
 
-                    Text("Discover your lights, then tap \"Save Current Lights\" to remember them and their selection for automatic reconnection.")
+                    Text("Select lights using the checkboxes below, then tap \"Save Current Lights\" to remember them for automatic reconnection. Names and IDs are stored together.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+            }
+
+            // Identify lights
+            GroupBox(label: Text("Identify").font(.subheadline)) {
+                HStack(spacing: 12) {
+                    Button(action: {
+                        if lifx.isIdentifying {
+                            lifx.stopIdentify()
+                        } else {
+                            lifx.identifyLights()
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            if lifx.isIdentifying {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Stop Blinking")
+                            } else {
+                                Image(systemName: "lightbulb.max")
+                                Text("Identify Lights")
+                            }
+                        }
+                    }
+                    .disabled(lifx.lights.isEmpty)
+                    .controlSize(.small)
+
+                    Text(identifyStatusText)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -999,6 +1068,7 @@ struct LightsSettingsTab: View {
                 Text("• LIFX bulbs must be on the same Wi‑Fi network\n• Local Network permission is required\n• UDP port 56700 must be reachable\n• Firewall should allow incoming connections")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
             }
         }
         .padding()

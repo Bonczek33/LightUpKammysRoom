@@ -17,6 +17,7 @@ struct MenuBarLightsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Button("Scan") { lifx.scan() }
+                    .help("Scan your local network for LIFX lights.")
                 Spacer()
                 Text(lifx.status)
                     .font(.caption)
@@ -27,8 +28,10 @@ struct MenuBarLightsView: View {
             HStack(spacing: 8) {
                 Button("All") { lifx.selectAll() }
                     .disabled(lifx.lights.isEmpty)
+                    .help("Select all discovered lights.")
                 Button("None") { lifx.selectNone() }
                     .disabled(lifx.selectedIDs.isEmpty)
+                    .help("Deselect all lights.")
                 Spacer()
                 Text("\(lifx.selectedIDs.count) selected")
                     .font(.caption)
@@ -38,8 +41,10 @@ struct MenuBarLightsView: View {
             HStack(spacing: 8) {
                 Button("On") { lifx.setPowerForSelected(true) }
                     .disabled(lifx.selectedIDs.isEmpty)
+                    .help("Power on all selected lights.")
                 Button("Off") { lifx.setPowerForSelected(false) }
                     .disabled(lifx.selectedIDs.isEmpty)
+                    .help("Power off all selected lights.")
                 Spacer()
             }
 

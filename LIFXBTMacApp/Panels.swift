@@ -9,14 +9,19 @@ struct BluetoothStatusBar: View {
         HStack(spacing: 18) {
             Label("Bluetooth", systemImage: "antenna.radiowaves.left.and.right")
                 .font(.headline)
+                .help("Bluetooth Low Energy sensor connections. Configure in Settings > Bluetooth.")
 
             Circle()
                 .fill(bt.btState == .poweredOn ? Color.green : Color.red)
                 .frame(width: 8, height: 8)
+                .help(bt.btState == .poweredOn ? "Bluetooth is active and ready." : "Bluetooth is not available. Check System Settings.")
 
             StatPill(title: "Heart Rate", value: bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                .help("Live heart rate from connected BLE heart rate monitor.")
             StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
+                .help("Instantaneous power from connected BLE power meter / smart trainer.")
             StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                .help("Pedaling cadence derived from crank revolution data.")
 
             if bt.isRetryingHR || bt.isRetryingPower {
                 HStack(spacing: 4) {
@@ -25,6 +30,7 @@ struct BluetoothStatusBar: View {
                         .font(.caption)
                         .foregroundColor(.orange)
                 }
+                .help("Automatically retrying connection with exponential backoff.")
             }
 
             Spacer()
@@ -37,12 +43,14 @@ struct BluetoothStatusBar: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            .help("Currently connected sensor names. Connect new sensors in Settings > Bluetooth.")
 
             Text(bt.status)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(maxWidth: 160, alignment: .trailing)
+                .help("Current Bluetooth connection status.")
         }
     }
 
@@ -65,6 +73,7 @@ struct AutoColorPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Text("Auto Color").font(.headline)
+                    .help("Automatically changes light color based on your training zone. Select a source to enable.")
 
                 Picker("Source", selection: $auto.source) {
                     ForEach(AutoColorController.Source.allCases) { s in
@@ -73,6 +82,7 @@ struct AutoColorPanel: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 560)
+                .help("Off = manual control. Heart Rate = zones based on %maxHR. Power = zones based on %FTP.")
 
                 Spacer()
 
@@ -80,6 +90,7 @@ struct AutoColorPanel: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 8)
+                    .help("Current sensor reading and the reference value used for zone calculation.")
             }
 
             HStack(spacing: 18) {
@@ -87,18 +98,22 @@ struct AutoColorPanel: View {
                     Text("Age \(auto.ageYears)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .help("Calculated from your date of birth. Change in Settings > General.")
 
                     Text("MaxHR \(auto.maxHR)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .help("Estimated maximum heart rate (220 − age). Used to calculate HR training zones.")
                     
                     Text("FTP \(auto.ftp)W")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .help("Functional Threshold Power. Used to calculate power training zones. Change in Settings > General.")
                     
                     Text("Weight \(String(format: "%.1f", auto.weightKg))kg")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .help("Body weight used for W/kg calculation in charts. Change in Settings > General.")
                 }
 
                 Spacer()
@@ -109,6 +124,7 @@ struct AutoColorPanel: View {
                 Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .help("Current training zone (1–7). Zone color is applied to all selected LIFX lights.")
             }
 
             ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp)
@@ -144,6 +160,9 @@ struct AppliedColorIndicator: View {
         }
         .animation(.easeInOut(duration: 0.3), value: auto.appliedPaletteIndex ?? -1)
         .animation(.easeInOut(duration: 0.3), value: auto.appliedIntensityPercent ?? -1)
+        .help(auto.appliedIntensityPercent != nil
+              ? "Current zone color and brightness being sent to selected lights."
+              : "Shows the zone color being applied. No intensity modulation active.")
     }
     
     private func colorForCurrentState(paletteIndex: Int?, intensityPercent: Double?) -> Color {
@@ -198,6 +217,7 @@ struct ZoneLegendView: View {
             Text("Zone palette + ranges (ZWIFT colors, applies to selected lights)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .help("Training zones follow Zwift's 7-zone color scheme. Thresholds are based on your maxHR and FTP settings.")
 
             HStack(spacing: 10) {
                 ForEach(ZoneDefs.zones) { z in
@@ -208,6 +228,7 @@ struct ZoneLegendView: View {
                         Text(z.name).font(.caption2).foregroundColor(.secondary)
                     }
                     .frame(width: 44)
+                    .help("\(z.name) — \(z.label): \(Int(z.low * 100))%\(z.high.map { "–\(Int($0 * 100))%" } ?? "+")")
                 }
                 Spacer()
             }
@@ -248,17 +269,23 @@ struct LIFXPanel: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Button("Scan LIFX") { vm.scan() }
+                    .help("Broadcast a UDP discovery packet to find all LIFX lights on your local network.")
                 Text(vm.status).foregroundColor(.secondary)
                 Spacer()
                 Button("Select All") { vm.selectAll() }.disabled(vm.lights.isEmpty)
+                    .help("Select all discovered lights for auto color control.")
                 Button("Select None") { vm.selectNone() }.disabled(vm.selectedIDs.isEmpty)
+                    .help("Deselect all lights.")
             }
 
             HStack(spacing: 12) {
                 Button("Turn ON Selected") { vm.setPowerForSelected(true) }.disabled(vm.selectedIDs.isEmpty)
+                    .help("Power on all selected lights.")
                 Button("Turn OFF Selected") { vm.setPowerForSelected(false) }.disabled(vm.selectedIDs.isEmpty)
+                    .help("Power off all selected lights.")
                 Spacer()
                 Text("\(vm.selectedIDs.count) selected").foregroundColor(.secondary)
+                    .help("Number of lights that will receive auto color updates.")
             }
 
             List(vm.lights) { light in
@@ -277,4 +304,3 @@ struct LIFXPanel: View {
         }
     }
 }
-
