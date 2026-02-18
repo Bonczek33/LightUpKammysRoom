@@ -194,8 +194,12 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 while Date().timeIntervalSince(start) < perLightDuration {
                     guard !Task.isCancelled else { break }
                     
-                    // ON
+                    // ON at 100% brightness (white)
                     ctrl.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: 0)
+                    ctrl.setColor(ip: light.ip, targetHex: light.id, color: LIFXColor(
+                        hue: 0, saturation: 0, brightness: 1.0,
+                        hueU16: 0, satU16: 0, briU16: 65535, kelvin: 6500
+                    ), durationMs: 0)
                     do { try await Task.sleep(nanoseconds: onDuration) } catch { break }
                     
                     guard !Task.isCancelled else { break }

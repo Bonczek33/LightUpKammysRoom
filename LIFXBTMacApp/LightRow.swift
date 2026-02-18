@@ -52,7 +52,6 @@ struct LightRow: View {
     let displayName: String
     let alias: String
     let isSelected: Bool
-    let lifxColor: LIFXColor?
     let isPoweredOn: Bool?
 
     let onToggleSelect: () -> Void
@@ -67,9 +66,6 @@ struct LightRow: View {
                     .toggleStyle(.checkbox)
                     .labelsHidden()
                     .help("Select this light to include it in auto color control.")
-
-                LEDDot(fill: colorLEDColor(lifxColor), stroke: .secondary, size: 12)
-                    .help(lifxColor != nil ? "Current color reported by the light." : "No color data — light may be off or unreachable.")
 
                 // Power on/off indicator
                 PowerIndicator(isPoweredOn: isPoweredOn)
@@ -128,10 +124,6 @@ struct LightRow: View {
         }
     }
 
-    private func colorLEDColor(_ c: LIFXColor?) -> Color {
-        guard let c else { return .gray }
-        return Color(hue: c.hue, saturation: c.saturation, brightness: max(0.05, c.brightness))
-    }
 }
 
 struct LEDDot: View {

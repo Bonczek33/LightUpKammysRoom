@@ -119,6 +119,7 @@ struct ContentView: View {
         auto.modulateIntensityWithPower = store.modulateIntensityWithPower
         auto.minPowerIntensityPercent = store.minPowerIntensityPercent
         auto.maxPowerIntensityPercent = store.maxPowerIntensityPercent
+        auto.activeZones = store.activeZones
 
         lifx.aliasByID = store.aliasesByID
         charts.weightKg = store.weightKg
@@ -145,4 +146,3 @@ struct ContentView: View {
         applyStore()
     }
 }
-

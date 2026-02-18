@@ -1,10 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_lifx._udp</string>
-	</array>
+
+    <!-- App identity -->
+    <key>CFBundleName</key>
+    <string>LIFXBTMacApp</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>LIFX BT Mac</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>com.yourname.lifxbtmac</string>
+
+    <!-- Executable -->
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- Versioning (modern Xcode-compatible) -->
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
+    <!-- Match deployment target automatically -->
+    <key>LSMinimumSystemVersion</key>
+    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+
+    <!-- SwiftUI lifecycle -->
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+
+    <!-- Bonjour (LIFX discovery) -->
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_lifx._udp</string>
+    </array>
+
+    <!-- Bluetooth permission -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>This app uses Bluetooth to read heart rate and power sensors.</string>
+
 </dict>
 </plist>

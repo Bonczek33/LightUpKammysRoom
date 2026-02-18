@@ -29,7 +29,8 @@ func u16Hue(_ degrees: Double) -> UInt16 {
 }
 
 enum ZwiftZonePalette {
-    // Z1 Grey, Z2 Blue, Z3 Green, Z4 Yellow, Z5 Orange, Z6 Red, Z7 Purple
+    // Available zone colors (Z7 Purple kept as option for custom zones)
+    // Default 6 zones use indices 0–5
     static let colors: [LIFXBasicColor] = [
         .init(name: "Z1 Grey",   hueU16: u16Hue(0),   satU16: 0,     kelvin: 6500),
         .init(name: "Z2 Blue",   hueU16: u16Hue(210), satU16: 65535, kelvin: 3500),
@@ -40,4 +41,3 @@ enum ZwiftZonePalette {
         .init(name: "Z7 Purple", hueU16: u16Hue(270), satU16: 65535, kelvin: 3500),
     ]
 }
-

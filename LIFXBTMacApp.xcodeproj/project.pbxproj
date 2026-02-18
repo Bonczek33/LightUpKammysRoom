@@ -30,6 +30,7 @@
 		C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
 		C29ED3312F44C3CD0002B4BE /* BuildNumber.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */; };
+		C29ED3332F44D51C0002B4BE /* Untitled.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3322F44D51A0002B4BE /* Untitled.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 		C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLightsView.swift; sourceTree = "<group>"; };
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildNumber.xcconfig; sourceTree = "<group>"; };
+		C29ED3322F44D51A0002B4BE /* Untitled.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Untitled.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +130,7 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C29ED3322F44D51A0002B4BE /* Untitled.swift */,
 				C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */,
 				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
 				C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */,
@@ -309,6 +312,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		96253CC82F3287F700E17BB2 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -323,6 +327,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n#agvtool next-version -all\n#agvtool next-version\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -343,6 +348,7 @@
 				C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */,
 				96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */,
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
+				C29ED3332F44D51C0002B4BE /* Untitled.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
 				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
 				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,

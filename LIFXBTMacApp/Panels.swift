@@ -131,10 +131,10 @@ struct AutoColorPanel: View {
                 Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .help("Current training zone (1–7). Zone color is applied to all selected LIFX lights.")
+                    .help("Current training zone (1–6). Zone color is applied to all selected LIFX lights.")
             }
 
-            ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp)
+            ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp, zones: store.activeZones)
         }
         .onChange(of: auto.source) { _, newValue in
             store.autoSourceRaw = newValue.rawValue
@@ -193,6 +193,7 @@ struct AppliedColorIndicator: View {
 struct ZoneLegendView: View {
     let maxHR: Int
     let ftp: Int
+    var zones: [Zone] = ZoneDefs.zones
 
     private func pct(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
 
@@ -221,13 +222,13 @@ struct ZoneLegendView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Zone palette + ranges (ZWIFT colors, applies to selected lights)")
+            Text("Zone palette + ranges (applies to selected lights)")
                 .font(.caption)
                 .foregroundColor(.secondary)
-                .help("Training zones follow Zwift's 7-zone color scheme. Thresholds are based on your maxHR and FTP settings.")
+                .help("Training zones follow a 6-zone color scheme. Thresholds are based on your maxHR and FTP settings.")
 
             HStack(spacing: 10) {
-                ForEach(ZoneDefs.zones) { z in
+                ForEach(zones) { z in
                     let c = ZwiftZonePalette.colors[z.paletteIndex].preview
                     VStack(spacing: 4) {
                         Circle().fill(c).frame(width: 14, height: 14)
@@ -247,7 +248,7 @@ struct ZoneLegendView: View {
                 Text("Power (W)").font(.caption).foregroundColor(.secondary)
                 Text("Color").font(.caption).foregroundColor(.secondary)
 
-                ForEach(ZoneDefs.zones) { z in
+                ForEach(zones) { z in
                     let pLo = pct(z.low)
                     let pHi = z.high.map { pct($0) } ?? "∞"
                     let colorName = ZwiftZonePalette.colors[z.paletteIndex].name
@@ -301,7 +302,6 @@ struct LIFXPanel: View {
                     displayName: vm.displayName(for: light),
                     alias: vm.aliasByID[light.id] ?? "",
                     isSelected: vm.selectedIDs.contains(light.id),
-                    lifxColor: vm.colorByID[light.id],
                     isPoweredOn: vm.powerByID[light.id],
                     onToggleSelect: { vm.toggleSelection(for: light) },
                     onAliasChanged: { newAlias in

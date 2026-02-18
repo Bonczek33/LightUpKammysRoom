@@ -37,6 +37,9 @@ final class AutoColorController: ObservableObject {
     var modulateIntensityWithPower: Bool = false
     var minPowerIntensityPercent: Double = 10.0
     var maxPowerIntensityPercent: Double = 100.0
+    
+    /// Custom zone list from settings (nil = use defaults)
+    var activeZones: [Zone] = ZoneDefs.zones
 
     weak var lifx: LIFXDiscoveryViewModel?
     weak var bt: BluetoothSensorsViewModel?
@@ -249,7 +252,7 @@ final class AutoColorController: ObservableObject {
 
         guard let rs = smoothedRatio else { return }
 
-        let zone = ZoneDefs.zone(for: rs)
+        let zone = ZoneDefs.zone(for: rs, in: activeZones)
         appliedPaletteIndex = zone.paletteIndex
         
         // Only log zone changes to reduce console spam
@@ -395,4 +398,3 @@ final class AutoColorController: ObservableObject {
                lastSentBrightness != brightness
     }
 }
-

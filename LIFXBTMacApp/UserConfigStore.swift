@@ -37,6 +37,18 @@ struct PersistedUserConfig: Codable {
     var lifxAutoReconnect: Bool?          // nil for migration from older configs
     var savedLightEntries: [SavedLightEntry]?  // Known lights (id, ip, label)
     var savedSelectedLightIDs: [String]?  // Which lights were selected
+    
+    // Custom zone configuration
+    var customZones: [PersistedZone]?
+}
+
+struct PersistedZone: Codable, Hashable {
+    var id: Int              // 1..6
+    var name: String         // "Z1"
+    var label: String        // "Easy", "Endurance", etc.
+    var low: Double          // inclusive ratio (0.0 .. )
+    var high: Double?        // exclusive ratio, nil => no upper bound
+    var paletteIndex: Int    // index into ZwiftZonePalette.colors
 }
 
 /// A minimal snapshot of a discovered LIFX light for persistence
@@ -70,7 +82,7 @@ final class UserConfigStore: ObservableObject {
     static let defaultsLIFXAutoReconnect: Bool = true
 
     // bump key because schema changed
-    private let key = "lifx_bt_tacx_user_config_v9"
+    private let key = "lifx_bt_tacx_user_config_v10"
 
     @Published var dateOfBirth: Date = defaultsDOB
     @Published var ftp: Int = defaultsFTP
@@ -96,6 +108,7 @@ final class UserConfigStore: ObservableObject {
     @Published var lifxAutoReconnect: Bool = defaultsLIFXAutoReconnect
     @Published var savedLightEntries: [SavedLightEntry] = []
     @Published var savedSelectedLightIDs: [String] = []
+    @Published var customZones: [PersistedZone]? = nil  // nil = use defaults
 
     func load() {
         guard let data = UserDefaults.standard.data(forKey: key) else { return }
@@ -120,6 +133,7 @@ final class UserConfigStore: ObservableObject {
             lifxAutoReconnect = decoded.lifxAutoReconnect ?? Self.defaultsLIFXAutoReconnect
             savedLightEntries = decoded.savedLightEntries ?? []
             savedSelectedLightIDs = decoded.savedSelectedLightIDs ?? []
+            customZones = decoded.customZones
             
             // Merge aliases from saved light entries into the canonical aliases dictionary
             // so they're available immediately at startup before any scan completes
@@ -154,7 +168,8 @@ final class UserConfigStore: ObservableObject {
             lastPowerPeripheralName: lastPowerPeripheralName,
             lifxAutoReconnect: lifxAutoReconnect,
             savedLightEntries: savedLightEntries,
-            savedSelectedLightIDs: savedSelectedLightIDs
+            savedSelectedLightIDs: savedSelectedLightIDs,
+            customZones: customZones
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: key)
@@ -182,7 +197,25 @@ final class UserConfigStore: ObservableObject {
         lifxAutoReconnect = Self.defaultsLIFXAutoReconnect
         savedLightEntries = []
         savedSelectedLightIDs = []
+        customZones = nil
+        save()
+    }
+    
+    /// Returns the active zone list — custom if configured, otherwise defaults
+    var activeZones: [Zone] {
+        guard let cz = customZones, cz.count == 6 else { return ZoneDefs.zones }
+        return cz.map { Zone(id: $0.id, name: $0.name, low: $0.low, high: $0.high, paletteIndex: $0.paletteIndex, label: $0.label) }
+    }
+    
+    /// Persist zone edits from the UI
+    func saveCustomZones(_ zones: [PersistedZone]) {
+        customZones = zones
+        save()
+    }
+    
+    /// Reset zones back to Zwift defaults
+    func resetZonesToDefaults() {
+        customZones = nil
         save()
     }
 }
-
