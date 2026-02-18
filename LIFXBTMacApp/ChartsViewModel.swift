@@ -32,10 +32,19 @@ final class ChartsViewModel: ObservableObject {
     
     // Reference to data sources
     weak var bt: BluetoothSensorsViewModel?
+    weak var antPlus: ANTPlusSensorViewModel?
+    var useANTPlus: Bool = false
     var weightKg: Double = 70.0
     
-    func bind(bt: BluetoothSensorsViewModel) {
+    // Convenience: read from active source
+    private var activeHR: Int? { useANTPlus ? antPlus?.heartRateBPM : bt?.heartRateBPM }
+    private var activePower: Int? { useANTPlus ? antPlus?.powerWatts : bt?.powerWatts }
+    private var activeCadence: Int? { useANTPlus ? antPlus?.cadenceRPM : bt?.cadenceRPM }
+    
+    func bind(bt: BluetoothSensorsViewModel, antPlus: ANTPlusSensorViewModel? = nil, useANTPlus: Bool = false) {
         self.bt = bt
+        self.antPlus = antPlus
+        self.useANTPlus = useANTPlus
         startSampling()
     }
     
@@ -70,16 +79,14 @@ final class ChartsViewModel: ObservableObject {
     }
     
     private func sampleData() {
-        guard let bt else { return }
-        
         let now = Date()
         
-        // Only sample if we have at least one value
-        let hasData = bt.heartRateBPM != nil || bt.powerWatts != nil || bt.cadenceRPM != nil
+        // Only sample if we have at least one value from the active source
+        let hasData = activeHR != nil || activePower != nil || activeCadence != nil
         guard hasData else { return }
         
         // Heart Rate
-        if let hr = bt.heartRateBPM {
+        if let hr = activeHR {
             heartRateHistory.append(DataPoint(timestamp: now, value: Double(hr)))
             if heartRateHistory.count > maxDataPoints {
                 heartRateHistory.removeFirst()
@@ -87,7 +94,7 @@ final class ChartsViewModel: ObservableObject {
         }
         
         // Power
-        if let power = bt.powerWatts {
+        if let power = activePower {
             powerHistory.append(DataPoint(timestamp: now, value: Double(power)))
             if powerHistory.count > maxDataPoints {
                 powerHistory.removeFirst()
@@ -102,7 +109,7 @@ final class ChartsViewModel: ObservableObject {
         }
         
         // Cadence
-        if let cadence = bt.cadenceRPM {
+        if let cadence = activeCadence {
             cadenceHistory.append(DataPoint(timestamp: now, value: Double(cadence)))
             if cadenceHistory.count > maxDataPoints {
                 cadenceHistory.removeFirst()
@@ -220,4 +227,3 @@ final class ChartsViewModel: ObservableObject {
         }
     }
 }
-

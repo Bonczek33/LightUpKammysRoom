@@ -9,10 +9,11 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var bt: BluetoothSensorsViewModel
+    @ObservedObject var antPlus: ANTPlusSensorViewModel
     @ObservedObject var lifx: LIFXDiscoveryViewModel
     @ObservedObject var auto: AutoColorController
     @ObservedObject var store: UserConfigStore
-    @ObservedObject var charts: ChartsViewModel  // Charts view model
+    @ObservedObject var charts: ChartsViewModel
 
     private let intFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -24,10 +25,13 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 12) {
 
-                // Compact BT status bar (config moved to Settings)
-                BluetoothStatusBar(bt: bt)
+                // Compact sensor status bar — shows BLE or ANT+ based on setting
+                if store.sensorInputSource == "ant+" {
+                    ANTPlusStatusBar(antPlus: antPlus)
+                } else {
+                    BluetoothStatusBar(bt: bt)
+                }
 
-                // NOTE: LIFX discovery/selection UI moved to Settings > Lights, and Menu Bar
                 AutoColorPanel(
                     auto: auto,
                     store: store,
@@ -45,13 +49,11 @@ struct ContentView: View {
         .task {
             store.load()
 
-            // Bind controllers/view-models
-            auto.bind(lifx: lifx, bt: bt)
-            charts.bind(bt: bt)
-
+            // Bind auto color controller and charts to the active sensor source
+            bindSensorSource()
             applyStore()
 
-            // Remember connected devices for auto-reconnect
+            // Remember connected BT devices for auto-reconnect
             bt.onDeviceConnected = { [weak store] id, name, isHR, isPower in
                 guard let store else { return }
                 if isHR {
@@ -65,12 +67,34 @@ struct ContentView: View {
                 store.save()
             }
 
-            // Auto-reconnect to last known BT devices
-            if store.btAutoReconnect {
+            // Auto-reconnect to last known BT devices (only in BLE mode)
+            if store.sensorInputSource == "ble" && store.btAutoReconnect {
                 bt.autoReconnect(
                     hrUUID: store.lastHRPeripheralID,
                     powerUUID: store.lastPowerPeripheralID
                 )
+            }
+
+            // Start ANT+ if that's the selected source and auto-reconnect is enabled
+            if store.sensorInputSource == "ant+" && store.antPlusAutoReconnect {
+                antPlus.autoReconnect(
+                    hrDeviceNumber: store.lastANTHRDeviceNumber,
+                    powerDeviceNumber: store.lastANTPowerDeviceNumber
+                )
+            }
+
+            // Remember connected ANT+ devices for auto-reconnect
+            antPlus.onDeviceConnected = { [weak store] deviceNumber, name, isHR, isPower in
+                guard let store else { return }
+                if isHR {
+                    store.lastANTHRDeviceNumber = deviceNumber
+                    store.lastANTHRDeviceName = name
+                }
+                if isPower {
+                    store.lastANTPowerDeviceNumber = deviceNumber
+                    store.lastANTPowerDeviceName = name
+                }
+                store.save()
             }
 
             // Auto-reconnect to last known LIFX lights
@@ -81,17 +105,12 @@ struct ContentView: View {
                     savedSelectedIDs: store.savedSelectedLightIDs
                 )
             }
-
-            // Listen for settings changes from Settings window
-            NotificationCenter.default.addObserver(
-                forName: .settingsDidChange,
-                object: nil,
-                queue: .main
-            ) { _ in
-                Task { @MainActor in
-                    store.load()
-                    applyStore()
-                }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .settingsDidChange)) { _ in
+            Task { @MainActor in
+                store.load()
+                applyStore()
+                bindSensorSource()
             }
         }
         .onChange(of: lifx.aliasByID) { _, newValue in
@@ -100,11 +119,38 @@ struct ContentView: View {
         .onChange(of: store.weightKg) { _, newValue in
             charts.weightKg = newValue
         }
+        .onChange(of: store.sensorInputSource) { _, newValue in
+            switchSensorSource(to: newValue)
+        }
         .onDisappear {
-            // Do not stop LIFX / BT / Auto / Charts here:
-            // the app may continue running via Menu Bar and Settings.
             saveAll()
         }
+    }
+
+    /// Bind the AutoColorController and Charts to the active sensor source
+    private func bindSensorSource() {
+        let useANT = store.sensorInputSource == "ant+"
+        auto.bind(lifx: lifx, bt: bt, antPlus: antPlus, useANTPlus: useANT)
+        charts.bind(bt: bt, antPlus: antPlus, useANTPlus: useANT)
+    }
+
+    /// Handle switching between BLE and ANT+ at runtime
+    private func switchSensorSource(to source: String) {
+        if source == "ant+" {
+            antPlus.autoReconnect(
+                hrDeviceNumber: store.lastANTHRDeviceNumber,
+                powerDeviceNumber: store.lastANTPowerDeviceNumber
+            )
+        } else {
+            antPlus.stop()
+            if store.btAutoReconnect {
+                bt.autoReconnect(
+                    hrUUID: store.lastHRPeripheralID,
+                    powerUUID: store.lastPowerPeripheralID
+                )
+            }
+        }
+        bindSensorSource()
     }
 
     private func applyStore() {

@@ -31,6 +31,7 @@
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
 		C29ED3312F44C3CD0002B4BE /* BuildNumber.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */; };
 		C29ED3332F44D51C0002B4BE /* Untitled.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3322F44D51A0002B4BE /* Untitled.swift */; };
+		C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +81,7 @@
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildNumber.xcconfig; sourceTree = "<group>"; };
 		C29ED3322F44D51A0002B4BE /* Untitled.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Untitled.swift; sourceTree = "<group>"; };
+		C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ANTPlusSensorViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				C29ED3322F44D51A0002B4BE /* Untitled.swift */,
+				C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */,
 				C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */,
 				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
 				C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */,
@@ -342,6 +345,7 @@
 				96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */,
 				C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */,
 				96253CBA2F3285A800E17BB2 /* LIFXBTMacApp.swift in Sources */,
+				C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */,
 				96253CC02F3285A800E17BB2 /* Zones.swift in Sources */,
 				96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */,
 				96253CB92F3285A800E17BB2 /* LIFXLanDiscovery.swift in Sources */,
@@ -539,15 +543,15 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
-				ENABLE_RESOURCE_ACCESS_USB = NO;
-				ENABLE_USER_SELECTED_FILES = "";
+				ENABLE_RESOURCE_ACCESS_USB = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammy's Room";
+				INFOPLIST_KEY_CFBundleDisplayName = "LIFX BT Mac";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app uses Bluetooth to read heart rate and power sensors.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs local network access to discover and control LIFX lights on your network.";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -588,15 +592,15 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
-				ENABLE_RESOURCE_ACCESS_USB = NO;
-				ENABLE_USER_SELECTED_FILES = "";
+				ENABLE_RESOURCE_ACCESS_USB = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LIFXBTMacApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Light Up Kammy's Room";
+				INFOPLIST_KEY_CFBundleDisplayName = "LIFX BT Mac";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to commnitce with TACX and HR monitor";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app uses Bluetooth to read heart rate and power sensors.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "This app needs local network access to discover and control LIFX lights on your network.";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

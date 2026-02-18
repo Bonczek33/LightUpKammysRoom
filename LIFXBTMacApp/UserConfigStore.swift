@@ -40,6 +40,14 @@ struct PersistedUserConfig: Codable {
     
     // Custom zone configuration
     var customZones: [PersistedZone]?
+    
+    // Sensor input source
+    var sensorInputSource: String?  // "ble" or "ant+" — nil defaults to "ble"
+    var antPlusAutoReconnect: Bool?  // nil defaults to true
+    var lastANTHRDeviceNumber: UInt16?
+    var lastANTHRDeviceName: String?
+    var lastANTPowerDeviceNumber: UInt16?
+    var lastANTPowerDeviceName: String?
 }
 
 struct PersistedZone: Codable, Hashable {
@@ -109,6 +117,12 @@ final class UserConfigStore: ObservableObject {
     @Published var savedLightEntries: [SavedLightEntry] = []
     @Published var savedSelectedLightIDs: [String] = []
     @Published var customZones: [PersistedZone]? = nil  // nil = use defaults
+    @Published var sensorInputSource: String = "ble"   // "ble" or "ant+"
+    @Published var antPlusAutoReconnect: Bool = true
+    @Published var lastANTHRDeviceNumber: UInt16? = nil
+    @Published var lastANTHRDeviceName: String? = nil
+    @Published var lastANTPowerDeviceNumber: UInt16? = nil
+    @Published var lastANTPowerDeviceName: String? = nil
 
     func load() {
         guard let data = UserDefaults.standard.data(forKey: key) else { return }
@@ -134,6 +148,12 @@ final class UserConfigStore: ObservableObject {
             savedLightEntries = decoded.savedLightEntries ?? []
             savedSelectedLightIDs = decoded.savedSelectedLightIDs ?? []
             customZones = decoded.customZones
+            sensorInputSource = decoded.sensorInputSource ?? "ble"
+            antPlusAutoReconnect = decoded.antPlusAutoReconnect ?? true
+            lastANTHRDeviceNumber = decoded.lastANTHRDeviceNumber
+            lastANTHRDeviceName = decoded.lastANTHRDeviceName
+            lastANTPowerDeviceNumber = decoded.lastANTPowerDeviceNumber
+            lastANTPowerDeviceName = decoded.lastANTPowerDeviceName
             
             // Merge aliases from saved light entries into the canonical aliases dictionary
             // so they're available immediately at startup before any scan completes
@@ -169,7 +189,13 @@ final class UserConfigStore: ObservableObject {
             lifxAutoReconnect: lifxAutoReconnect,
             savedLightEntries: savedLightEntries,
             savedSelectedLightIDs: savedSelectedLightIDs,
-            customZones: customZones
+            customZones: customZones,
+            sensorInputSource: sensorInputSource,
+            antPlusAutoReconnect: antPlusAutoReconnect,
+            lastANTHRDeviceNumber: lastANTHRDeviceNumber,
+            lastANTHRDeviceName: lastANTHRDeviceName,
+            lastANTPowerDeviceNumber: lastANTPowerDeviceNumber,
+            lastANTPowerDeviceName: lastANTPowerDeviceName
         )
         if let data = try? JSONEncoder().encode(payload) {
             UserDefaults.standard.set(data, forKey: key)
@@ -198,6 +224,12 @@ final class UserConfigStore: ObservableObject {
         savedLightEntries = []
         savedSelectedLightIDs = []
         customZones = nil
+        sensorInputSource = "ble"
+        antPlusAutoReconnect = true
+        lastANTHRDeviceNumber = nil
+        lastANTHRDeviceName = nil
+        lastANTPowerDeviceNumber = nil
+        lastANTPowerDeviceName = nil
         save()
     }
     

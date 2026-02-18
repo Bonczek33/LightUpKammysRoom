@@ -67,20 +67,31 @@ final class AutoColorController: ObservableObject {
     private var powerSamples: [Int] = []
     private var powerSampleCap: Int = 0
 
+    weak var antPlus: ANTPlusSensorViewModel?
+    var useANTPlus: Bool = false
+
+    // Convenience: read sensor data from whichever source is active
+    private var activeHR: Int? { useANTPlus ? antPlus?.heartRateBPM : bt?.heartRateBPM }
+    private var activePower: Int? { useANTPlus ? antPlus?.powerWatts : bt?.powerWatts }
+    private var activeCadence: Int? { useANTPlus ? antPlus?.cadenceRPM : bt?.cadenceRPM }
+
     // FIXED: Proper task cancellation in bind()
-    func bind(lifx: LIFXDiscoveryViewModel, bt: BluetoothSensorsViewModel) {
+    func bind(lifx: LIFXDiscoveryViewModel, bt: BluetoothSensorsViewModel, antPlus: ANTPlusSensorViewModel? = nil, useANTPlus: Bool = false) {
         // Cancel existing task before binding new instances
         task?.cancel()
         task = nil
         
         self.lifx = lifx
         self.bt = bt
+        self.antPlus = antPlus
+        self.useANTPlus = useANTPlus
         
         // Reset state when binding new instances
         resetSmoothing()
         
         startLoop()
-        print("✅ [AutoColor] Bound to LIFX and BLE, starting control loop")
+        let source = useANTPlus ? "ANT+" : "BLE"
+        print("✅ [AutoColor] Bound to LIFX and \(source), starting control loop")
     }
 
     func stop() {
@@ -165,7 +176,7 @@ final class AutoColorController: ObservableObject {
     }
 
     private func tick() async {
-        guard let lifx, let bt else {
+        guard let lifx else {
             // No bindings yet
             return
         }
@@ -195,7 +206,7 @@ final class AutoColorController: ObservableObject {
         let rawRatio: Double?
         switch source {
         case .heartRate:
-            guard let bpm = bt.heartRateBPM else {
+            guard let bpm = activeHR else {
                 if lastInputText != "HR: —" {
                     lastInputText = "HR: —"
                     resetSmoothing()
@@ -206,7 +217,7 @@ final class AutoColorController: ObservableObject {
             rawRatio = Double(bpm) / Double(maxHR)
 
         case .power:
-            guard let wRaw = bt.powerWatts else {
+            guard let wRaw = activePower else {
                 if lastInputText != "Pwr: —" {
                     lastInputText = "Pwr: —"
                     resetSmoothing()
@@ -265,7 +276,7 @@ final class AutoColorController: ObservableObject {
         let p = ZwiftZonePalette.colors[zone.paletteIndex]
         
         // Determine intensity modulation
-        let modulatedBrightness: UInt16? = calculateModulatedBrightness(zone: zone, bt: bt)
+        let modulatedBrightness: UInt16? = calculateModulatedBrightness(zone: zone)
         
         if let finalBrightness = modulatedBrightness {
             // Send update if color or brightness changed
@@ -293,16 +304,16 @@ final class AutoColorController: ObservableObject {
     
     /// Determine the modulated brightness for the current source and zone.
     /// Returns nil if no modulation is active or data is unavailable.
-    private func calculateModulatedBrightness(zone: Zone, bt: BluetoothSensorsViewModel) -> UInt16? {
+    private func calculateModulatedBrightness(zone: Zone) -> UInt16? {
         switch source {
         case .power:
             // When source is Power, can modulate intensity with HR (existing behavior)
             // or with power position within zone
-            if modulateIntensityWithHR, let hrBPM = bt.heartRateBPM {
+            if modulateIntensityWithHR, let hrBPM = activeHR {
                 let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
                 return UInt16(max(0, min(65535, intensity * 65535.0)))
-            } else if modulateIntensityWithPower, let wRaw = bt.powerWatts {
+            } else if modulateIntensityWithPower, let wRaw = activePower {
                 let ftpSafe = max(1, ftp)
                 // Apply moving-average smoothing (same window as zone control)
                 let wSmoothed = pushPowerSample(wRaw)
@@ -315,7 +326,7 @@ final class AutoColorController: ObservableObject {
         case .heartRate:
             // When source is HR, can modulate intensity with power position within zone
             // or with HR position within zone
-            if modulateIntensityWithPower, let wRaw = bt.powerWatts {
+            if modulateIntensityWithPower, let wRaw = activePower {
                 let ftpSafe = max(1, ftp)
                 // Apply moving-average smoothing to power for intensity modulation
                 let wSmoothed = pushPowerSample(wRaw)
@@ -323,7 +334,7 @@ final class AutoColorController: ObservableObject {
                 let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
                 return UInt16(max(0, min(65535, intensity * 65535.0)))
-            } else if modulateIntensityWithHR, let hrBPM = bt.heartRateBPM {
+            } else if modulateIntensityWithHR, let hrBPM = activeHR {
                 let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
                 return UInt16(max(0, min(65535, intensity * 65535.0)))

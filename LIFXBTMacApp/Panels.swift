@@ -69,6 +69,67 @@ struct BluetoothStatusBar: View {
     }
 }
 
+// MARK: - ANT+ Status Bar
+
+struct ANTPlusStatusBar: View {
+    @ObservedObject var antPlus: ANTPlusSensorViewModel
+
+    var body: some View {
+        HStack(spacing: 18) {
+            Label("ANT+", systemImage: "cable.connector.horizontal")
+                .font(.headline)
+                .help("ANT+ USB dongle sensor connections. Configure in Settings > Bluetooth.")
+
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .help(antPlus.state.rawValue)
+
+            StatPill(title: "Heart Rate", value: antPlus.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                .help("Live heart rate from ANT+ heart rate monitor.")
+            StatPill(title: "Power", value: antPlus.powerWatts.map { "\($0) W" } ?? "—")
+                .help("Instantaneous power from ANT+ power meter / smart trainer.")
+            StatPill(title: "Cadence", value: antPlus.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                .help("Pedaling cadence from ANT+ power meter crank data.")
+
+            if antPlus.state == .searching {
+                HStack(spacing: 4) {
+                    ProgressView().controlSize(.small)
+                    Text("Searching…")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("HR: \(antPlus.connectedHRName ?? "—")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("Power: \(antPlus.connectedPowerName ?? "—")")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Text(antPlus.status)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: 200, alignment: .trailing)
+        }
+    }
+
+    private var statusColor: Color {
+        switch antPlus.state {
+        case .connected:    return .green
+        case .searching:    return .orange
+        case .disconnected: return .red
+        case .error:        return .red
+        }
+    }
+}
+
 // MARK: - Auto Color
 
 struct AutoColorPanel: View {

@@ -15,6 +15,7 @@ extension Notification.Name {
 @main
 struct LIFXBTMacApp: App {
     @StateObject private var bt = BluetoothSensorsViewModel()
+    @StateObject private var antPlus = ANTPlusSensorViewModel()
     @StateObject private var lifx = LIFXDiscoveryViewModel()
     @StateObject private var store = UserConfigStore()
     @StateObject private var auto = AutoColorController()
@@ -27,6 +28,7 @@ var body: some Scene {
         WindowGroup("Light Up Kammy's Room") {
             ContentView(
                 bt: bt,
+                antPlus: antPlus,
                 lifx: lifx,
                 auto: auto,
                 store: store,
@@ -46,6 +48,7 @@ var body: some Scene {
             SettingsView()
                 .frame(width: 1000, height: 600, alignment: .center)
                 .environmentObject(bt)
+                .environmentObject(antPlus)
                 .environmentObject(lifx)
                 .environmentObject(store)
                 .environmentObject(auto)
@@ -54,7 +57,6 @@ var body: some Scene {
         .windowResizability(.contentSize)
         .defaultSize(width: 1000, height: 600)
         .defaultPosition(.center)
-        .windowResizability(.contentSize)
         #else
         Settings {
             SettingsView()
@@ -75,7 +77,7 @@ struct SettingsView: View {
             
             BluetoothSettingsTab()
                 .tabItem {
-                    Label("Bluetooth", systemImage: "antenna.radiowaves.left.and.right")
+                    Label("Sensors", systemImage: "antenna.radiowaves.left.and.right")
                 }
             
             LightsSettingsTab()
@@ -107,7 +109,7 @@ private func bringMainWindowToFront() {
 // MARK: - General Settings Tab
 
 struct GeneralSettingsTab: View {
-    @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
+    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
     @State private var showingResetAlert = false
     
     // Load from UserDefaults
@@ -465,38 +467,44 @@ struct GeneralSettingsTab: View {
                         // Power Smoothing Settings
                         GroupBox(label: Text("Power Smoothing").font(.subheadline)) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Moving average window for power-based light control and intensity modulation.")
+                                Toggle("Smooth power data with moving average", isOn: Binding(
+                                    get: { powerMovingAverageSeconds > 0 },
+                                    set: { newValue in
+                                        powerMovingAverageSeconds = newValue ? 2.0 : 0.0
+                                    }
+                                ))
+                                    .toggleStyle(.switch)
+                                    .help("Applies a moving average window to power data before it affects zone selection, color control, and intensity modulation. Reduces light flickering from power spikes.")
+                                
+                                Text("When enabled, power data is smoothed with a moving average before affecting light color and brightness. Raw power values are always displayed in the UI.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
-                                HStack {
-                                    Text("Smoothing Window:")
-                                        .frame(width: 120, alignment: .trailing)
-                                        .help("Duration of the moving average window applied to power data before it affects zone color and intensity modulation.")
-                                    
-                                    Slider(value: $powerMovingAverageSeconds, in: 0...5, step: 0.25)
-                                        .frame(width: 200)
-                                        .help("0s = raw power used directly. Higher values smooth out power spikes for more stable light behavior.")
-                                    
-                                    Text(String(format: "%.2fs", powerMovingAverageSeconds))
-                                        .font(.caption)
-                                        .monospacedDigit()
-                                        .foregroundColor(.secondary)
-                                        .frame(width: 50, alignment: .trailing)
+                                if powerMovingAverageSeconds > 0 {
+                                    VStack(spacing: 12) {
+                                        Divider()
+                                        
+                                        HStack {
+                                            Text("Smoothing Window:")
+                                                .frame(width: 120, alignment: .trailing)
+                                            
+                                            Slider(value: $powerMovingAverageSeconds, in: 0.25...5, step: 0.25)
+                                                .frame(width: 200)
+                                                .help("Duration of the moving average window. Higher values smooth out power spikes for more stable light behavior.")
+                                            
+                                            Text(String(format: "%.2fs", powerMovingAverageSeconds))
+                                                .font(.caption)
+                                                .monospacedDigit()
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 50, alignment: .trailing)
+                                        }
+                                        
+                                        Text("Smoothing window of \(String(format: "%.1f", powerMovingAverageSeconds))s applied to power data before zone selection and intensity modulation.")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .italic()
+                                    }
                                 }
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("• 0s = No smoothing (instant response)")
-                                    Text("• 1-2s = Moderate smoothing (recommended)")
-                                    Text("• 3-5s = Heavy smoothing (very noisy data)")
-                                }
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                
-                                Text("Note: Raw power values are always displayed; smoothing affects zone selection, color control, and power intensity modulation.")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .italic()
                             }
                             .padding(8)
                         }
@@ -547,11 +555,16 @@ struct GeneralSettingsTab: View {
 
 struct BluetoothSettingsTab: View {
     @EnvironmentObject var bt: BluetoothSensorsViewModel
-    @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
+    @EnvironmentObject var antPlus: ANTPlusSensorViewModel
+    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
 
     @State private var autoReconnect: Bool = true
     @State private var savedHRName: String? = nil
     @State private var savedPowerName: String? = nil
+    @State private var sensorSource: String = "ble"
+    @State private var antPlusAutoReconnect: Bool = true
+    @State private var savedANTHRName: String? = nil
+    @State private var savedANTPowerName: String? = nil
 
     private func loadBTSettings() {
         guard let data = configData,
@@ -559,6 +572,66 @@ struct BluetoothSettingsTab: View {
         autoReconnect = decoded.btAutoReconnect ?? true
         savedHRName = decoded.lastHRPeripheralName
         savedPowerName = decoded.lastPowerPeripheralName
+        sensorSource = decoded.sensorInputSource ?? "ble"
+        antPlusAutoReconnect = decoded.antPlusAutoReconnect ?? true
+        savedANTHRName = decoded.lastANTHRDeviceName
+        savedANTPowerName = decoded.lastANTPowerDeviceName
+    }
+
+    private func saveSensorSource(_ value: String) {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.sensorInputSource = value
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func saveANTPlusAutoReconnect(_ value: Bool) {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.antPlusAutoReconnect = value
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func saveCurrentANTDevices() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+
+        if let devNum = antPlus.connectedHRDeviceNumber, let name = antPlus.connectedHRName {
+            decoded.lastANTHRDeviceNumber = devNum
+            decoded.lastANTHRDeviceName = name
+            savedANTHRName = name
+        }
+        if let devNum = antPlus.connectedPowerDeviceNumber, let name = antPlus.connectedPowerName {
+            decoded.lastANTPowerDeviceNumber = devNum
+            decoded.lastANTPowerDeviceName = name
+            savedANTPowerName = name
+        }
+
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
+    private func clearSavedANTDevices() {
+        guard let data = configData,
+              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
+        decoded.lastANTHRDeviceNumber = nil
+        decoded.lastANTHRDeviceName = nil
+        decoded.lastANTPowerDeviceNumber = nil
+        decoded.lastANTPowerDeviceName = nil
+        if let encoded = try? JSONEncoder().encode(decoded) {
+            configData = encoded
+        }
+        savedANTHRName = nil
+        savedANTPowerName = nil
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveBTAutoReconnect(_ value: Bool) {
@@ -611,6 +684,228 @@ struct BluetoothSettingsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                Text("Sensor Input")
+                    .font(.headline)
+
+                // Sensor source picker
+                GroupBox(label: Text("Input Source").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Picker("Sensor source:", selection: $sensorSource) {
+                            Text("Bluetooth Low Energy (BLE)").tag("ble")
+                            Text("ANT+ (USB dongle)").tag("ant+")
+                        }
+                        .pickerStyle(.radioGroup)
+                        .onChange(of: sensorSource) { _, newValue in
+                            saveSensorSource(newValue)
+                        }
+                        .help("Choose how to connect to your heart rate monitor and power meter. BLE uses built-in Bluetooth. ANT+ requires a USB ANT+ dongle.")
+
+                        if sensorSource == "ant+" {
+                            Text("ANT+ uses a USB dongle to receive sensor data wirelessly. Most cycling sensors broadcast on both ANT+ and BLE simultaneously.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        if sensorSource == "ble" {
+                            Text("BLE uses your Mac's built-in Bluetooth to connect directly to sensors.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(8)
+                }
+
+                if sensorSource == "ant+" {
+
+                Divider()
+
+                Text("ANT+ Sensors")
+                    .font(.headline)
+
+                // Auto-reconnect settings
+                GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle("Automatically reconnect to last used sensors on app start", isOn: $antPlusAutoReconnect)
+                            .toggleStyle(.switch)
+                            .onChange(of: antPlusAutoReconnect) { _, newValue in
+                                saveANTPlusAutoReconnect(newValue)
+                            }
+                            .help("When enabled, the app will automatically connect to the ANT+ USB dongle and search for saved sensors when the app starts.")
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
+                                Text("Saved HR: \(savedANTHRName ?? "None")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            HStack(spacing: 6) {
+                                Image(systemName: "bolt.fill").foregroundColor(.orange).font(.caption)
+                                Text("Saved Power: \(savedANTPowerName ?? "None")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        HStack(spacing: 12) {
+                            Button("Save Current Devices") {
+                                saveCurrentANTDevices()
+                            }
+                            .disabled(antPlus.connectedHRName == nil && antPlus.connectedPowerName == nil)
+                            .controlSize(.small)
+
+                            if savedANTHRName != nil || savedANTPowerName != nil {
+                                Button("Forget Saved Devices") {
+                                    clearSavedANTDevices()
+                                }
+                                .foregroundColor(.red)
+                                .controlSize(.small)
+                            }
+                        }
+
+                        Text("Connect your sensors, then tap \"Save Current Devices\" to remember them for automatic reconnection. Saved device numbers allow faster pairing on next launch.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
+
+                Divider()
+
+                // Status + controls
+                GroupBox(label: Text("Status").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(antPlusStatusColor)
+                                .frame(width: 10, height: 10)
+                            Text("ANT+: \(antPlus.state.rawValue)")
+                                .font(.caption)
+                            Spacer()
+                            Text(antPlus.status)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+
+                        HStack(spacing: 12) {
+                            Button("Start") { antPlus.start() }
+                                .disabled(antPlus.state == .connected || antPlus.state == .searching)
+                            Button("Stop") { antPlus.stop() }
+                                .disabled(antPlus.state == .disconnected)
+                        }
+
+                        if antPlus.state == .searching {
+                            Divider()
+                            HStack(spacing: 6) {
+                                ProgressView().controlSize(.small)
+                                Text("Searching for ANT+ sensors…")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    }
+                    .padding(8)
+                }
+
+                // Live readings
+                GroupBox(label: Text("Live Readings").font(.subheadline)) {
+                    HStack(spacing: 18) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Heart Rate").font(.caption).foregroundColor(.secondary)
+                            Text(antPlus.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Power").font(.caption).foregroundColor(.secondary)
+                            Text(antPlus.powerWatts.map { "\($0) W" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Cadence").font(.caption).foregroundColor(.secondary)
+                            Text(antPlus.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                                .font(.title3).monospacedDigit()
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                }
+
+                // HR sensor
+                GroupBox(label: Text("Heart Rate Monitor").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "heart.fill").foregroundColor(.pink)
+                            Text("Connected: \(antPlus.connectedHRName ?? "None")")
+                                .font(.caption)
+                            Spacer()
+                        }
+
+                        Text("ANT+ heart rate monitors are detected automatically via wildcard search (device type 120, channel period 8070).")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
+
+                // Power sensor
+                GroupBox(label: Text("Power Meter").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "bolt.fill").foregroundColor(.orange)
+                            Text("Connected: \(antPlus.connectedPowerName ?? "None")")
+                                .font(.caption)
+                            Spacer()
+                        }
+
+                        Text("ANT+ power meters are detected automatically via wildcard search (device type 11, channel period 8182). Cadence is derived from crank revolution data.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
+
+                Divider()
+
+                // Troubleshooting info
+                GroupBox(label: Text("Troubleshooting").font(.subheadline)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("USB ANT+ Dongle", systemImage: "cable.connector.horizontal")
+                            .foregroundColor(.blue)
+                        Text("Compatible dongles: Dynastream/Garmin ANTUSB2, ANTUSB-m, CooSpo, CYCPLUS, FITCENT (vendor ID 0x0FCF)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Label("Supported Sensors", systemImage: "sensor.fill")
+                            .foregroundColor(.green)
+                        Text("Heart rate monitors (ANT+ device type 120) and cycling power meters (ANT+ device type 11)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Divider()
+
+                        Text("Tips:")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Make sure the ANT+ USB dongle is plugged in before starting")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Close Garmin Express — it can lock the dongle")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• ANT+ sensors broadcast continuously — no pairing needed")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Keep sensors within 3m of the dongle for best signal")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text("• Use a USB extension cable if the dongle is far from sensors")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
+                } // end if sensorSource == "ant+"
+
+                if sensorSource == "ble" {
+                Divider()
+
                 Text("Bluetooth Sensors")
                     .font(.headline)
 
@@ -622,7 +917,10 @@ struct BluetoothSettingsTab: View {
                             .onChange(of: autoReconnect) { _, newValue in
                                 saveBTAutoReconnect(newValue)
                             }
-
+                            .help("When enabled, the app will automatically connect to the BLT and search for saved sensors when the app starts.")
+                        
+                        Divider()
+                        
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {
                                 Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
@@ -660,6 +958,8 @@ struct BluetoothSettingsTab: View {
                     }
                     .padding(8)
                 }
+
+                Divider()
 
                 // Status + controls
                 GroupBox(label: Text("Status").font(.subheadline)) {
@@ -841,10 +1141,20 @@ struct BluetoothSettingsTab: View {
                     }
                     .padding(8)
                 }
+                } // end if sensorSource == "ble"
             }
             .padding()
         }
         .onAppear { loadBTSettings() }
+    }
+
+    private var antPlusStatusColor: Color {
+        switch antPlus.state {
+        case .connected:    return .green
+        case .searching:    return .orange
+        case .disconnected: return .red
+        case .error:        return .red
+        }
     }
 }
 
@@ -853,7 +1163,7 @@ struct BluetoothSettingsTab: View {
 struct LightsSettingsTab: View {
     @EnvironmentObject var lifx: LIFXDiscoveryViewModel
     @EnvironmentObject var store: UserConfigStore
-    @AppStorage("lifx_bt_tacx_user_config_v9") private var configData: Data?
+    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
 
     @State private var autoReconnect: Bool = true
     @State private var savedLightDisplayNames: [String] = []
@@ -961,7 +1271,10 @@ struct LightsSettingsTab: View {
                         .onChange(of: autoReconnect) { _, newValue in
                             saveLIFXAutoReconnect(newValue)
                         }
-
+                        .help("When enabled, the app will automatically connect to the LAN and search for saved lights when the app starts.")
+                    
+                    Divider()
+                    
                     if savedLightDisplayNames.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "lightbulb.slash")
@@ -1012,9 +1325,15 @@ struct LightsSettingsTab: View {
                 .padding(8)
             }
 
+            Divider()
+
             // Identify lights
             GroupBox(label: Text("Identify").font(.subheadline)) {
+               
+                Divider()
+                
                 HStack(spacing: 12) {
+                    
                     Button(action: {
                         if lifx.isIdentifying {
                             lifx.stopIdentify()
@@ -1043,6 +1362,8 @@ struct LightsSettingsTab: View {
                 .padding(8)
             }
 
+                Divider()
+                
             LIFXPanel(vm: lifx, store: store)
                 .frame(minHeight: 420)
 
@@ -1355,7 +1676,7 @@ struct AboutSettingsTab: View {
                             Text("Features")
                                 .font(.headline)
                             
-                            Label("Bluetooth heart rate & power sensors", systemImage: "antenna.radiowaves.left.and.right")
+                            Label("BLE and ANT+ heart rate & power sensors", systemImage: "antenna.radiowaves.left.and.right")
                             Label("LIFX LAN protocol control", systemImage: "network")
                             Label("6 training zones", systemImage: "chart.bar.fill")
                             Label("EMA smoothing & moving averages", systemImage: "waveform.path.ecg")
