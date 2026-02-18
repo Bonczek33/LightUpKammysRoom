@@ -275,6 +275,9 @@ struct GeneralSettingsTab: View {
                         
                         // Profile Settings
                         GroupBox(label: Text("Profile").font(.subheadline)) {
+                            
+                            Divider()
+                            
                             VStack(spacing: 12) {
                                 HStack {
                                     Text("Date of Birth:")
@@ -400,6 +403,7 @@ struct GeneralSettingsTab: View {
                         
                         // Intensity Modulation Settings (Power-based)
                         GroupBox(label: Text("Intensity Modulation (Power)").font(.subheadline)) {
+                            
                             VStack(alignment: .leading, spacing: 12) {
                                 Toggle("Modulate intensity with power", isOn: $modulateIntensityWithPower)
                                     .toggleStyle(.switch)
@@ -694,6 +698,9 @@ struct BluetoothSettingsTab: View {
                             Text("Bluetooth Low Energy (BLE)").tag("ble")
                             Text("ANT+ (USB dongle)").tag("ant+")
                         }
+                        
+                        Divider()
+                        
                         .pickerStyle(.radioGroup)
                         .onChange(of: sensorSource) { _, newValue in
                             saveSensorSource(newValue)
@@ -1177,7 +1184,7 @@ struct LightsSettingsTab: View {
             }
             return "Identifying lights…"
         }
-        return "Blinks each light for 5 seconds one at a time to help identify them."
+        return "" //"!Blinks each light for 5 seconds one at a time to help identify them."
     }
 
     private func loadLightsSettings() {
@@ -1328,10 +1335,10 @@ struct LightsSettingsTab: View {
             Divider()
 
             // Identify lights
-            GroupBox(label: Text("Identify").font(.subheadline)) {
+            GroupBox(label: Text("Identify Lights").font(.subheadline)) {
                
                 Divider()
-                
+                                
                 HStack(spacing: 12) {
                     
                     Button(action: {
@@ -1340,7 +1347,8 @@ struct LightsSettingsTab: View {
                         } else {
                             lifx.identifyLights()
                         }
-                    }) {
+                    })
+                    {
                         HStack(spacing: 6) {
                             if lifx.isIdentifying {
                                 ProgressView()
@@ -1352,6 +1360,7 @@ struct LightsSettingsTab: View {
                             }
                         }
                     }
+                
                     .disabled(lifx.lights.isEmpty)
                     .controlSize(.small)
 
@@ -1359,7 +1368,17 @@ struct LightsSettingsTab: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                
                 .padding(8)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Blinks each light for 5 seconds one at a time to help identify them.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+               
+                
             }
 
                 Divider()
