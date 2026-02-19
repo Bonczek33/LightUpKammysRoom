@@ -40,7 +40,7 @@ struct ContentView: View {
 
                 Divider()
 
-                ChartsPanel(charts: charts)
+                ChartsPanel(charts: charts, store: store)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -105,12 +105,18 @@ struct ContentView: View {
                     savedSelectedIDs: store.savedSelectedLightIDs
                 )
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .settingsDidChange)) { _ in
-            Task { @MainActor in
-                store.load()
-                applyStore()
-                bindSensorSource()
+
+            // Listen for settings changes
+            NotificationCenter.default.addObserver(
+                forName: .settingsDidChange,
+                object: nil,
+                queue: .main
+            ) { _ in
+                Task { @MainActor in
+                    store.load()
+                    applyStore()
+                    bindSensorSource()
+                }
             }
         }
         .onChange(of: lifx.aliasByID) { _, newValue in
@@ -192,3 +198,4 @@ struct ContentView: View {
         applyStore()
     }
 }
+

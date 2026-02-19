@@ -278,18 +278,31 @@ final class LIFXLanDiscovery {
     }
 
     private func sendPacket(to endpoint: NWEndpoint, packet: Data) {
+//        let params = NWParameters.udp
+//        params.allowLocalEndpointReuse = true
+//        
+//        // Less restrictive interface requirements
+//        params.includePeerToPeer = false
+//        params.prohibitedInterfaceTypes = [.loopback]
+//
+//        // Bind to same port as listener if available
+//        if let port = listenPort, let any = IPv4Address("0.0.0.0") {
+//            params.requiredLocalEndpoint = .hostPort(host: .ipv4(any), port: port)
+//        }
+
         let params = NWParameters.udp
-        params.allowLocalEndpointReuse = true
+            params.allowLocalEndpointReuse = true
+            params.includePeerToPeer = false
+            params.prohibitedInterfaceTypes = [.loopback]
+
+            // REMOVE THIS BLOCK (it causes EADDRINUSE when you open multiple connections):
+            // if let port = listenPort, let any = IPv4Address("0.0.0.0") {
+            //     params.requiredLocalEndpoint = .hostPort(host: .ipv4(any), port: port)
+            // }
+
+       //     let conn = NWConnection(to: endpoint, using: params)
         
-        // Less restrictive interface requirements
-        params.includePeerToPeer = false
-        params.prohibitedInterfaceTypes = [.loopback]
-
-        // Bind to same port as listener if available
-        if let port = listenPort, let any = IPv4Address("0.0.0.0") {
-            params.requiredLocalEndpoint = .hostPort(host: .ipv4(any), port: port)
-        }
-
+        
         let conn = NWConnection(to: endpoint, using: params)
         
         var didSend = false

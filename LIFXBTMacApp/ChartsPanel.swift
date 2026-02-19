@@ -11,7 +11,15 @@ import Charts
 
 struct ChartsPanel: View {
     @ObservedObject var charts: ChartsViewModel
+    @ObservedObject var store: UserConfigStore
     @State private var selectedChart: ChartType = .heartRate
+
+    enum HistogramMode: String, CaseIterable, Identifiable {
+        case minutes = "Minutes"
+        case percent = "%"
+        var id: String { rawValue }
+    }
+    @State private var histogramMode: HistogramMode = .percent
     
     enum ChartType: String, CaseIterable, Identifiable {
         case heartRate = "Heart Rate"
@@ -67,62 +75,76 @@ struct ChartsPanel: View {
                 .foregroundColor(.secondary)
                 .help("Clear all chart history. New data will start accumulating immediately.")
             }
-            
-            // Chart display
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                    )
-                
-                VStack(spacing: 0) {
-                    // Stats bar
-                    statsBar(for: selectedChart)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
-                    
-                    Divider()
-                    
-                    // Time series chart
-                    chartView(for: selectedChart)
-                        .frame(height: 180)
-                        .padding(16)
-                }
-            }
-            .frame(height: 260)
-            
-            // Histogram
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                    )
-                
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("Distribution")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .help("Histogram showing how much time you've spent at each intensity level.")
-                        Spacer()
+            // Charts + Histogram (inline)
+            HStack(spacing: 12) {
+
+                // Main performance chart (2/3)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        )
+
+                    VStack(spacing: 0) {
+                        // Stats bar
+                        statsBar(for: selectedChart)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
+
+                        Divider()
+
+                        // Time series chart
+                        chartView(for: selectedChart)
+                            .frame(height: 180)
+                            .padding(16)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
-                    
-                    Divider()
-                    
-                    histogramView(for: selectedChart)
-                        .frame(height: 100)
-                        .padding(16)
                 }
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .layoutPriority(1)
+
+                // Histogram (1/3)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                        )
+
+                    VStack(spacing: 0) {
+    HStack(spacing: 10) {
+        Text("Distribution")
+            .font(.subheadline)
+            .foregroundColor(.secondary)
+            .help("Histogram showing how much time you've spent at each intensity level.")
+        Spacer()
+        Picker("", selection: $histogramMode) {
+            ForEach(HistogramMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
             }
-            .frame(height: 160)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 120)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
+
+    Divider()
+    histogramView(for: selectedChart)
+                            .frame(height: 180)
+                            .padding(16)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 260)
+                .layoutPriority(1)
+            }
         }
     }
     
@@ -334,77 +356,239 @@ struct ChartsPanel: View {
         }
     }
     
-    private func histogramData(for type: ChartType) -> (buckets: [ChartsViewModel.HistogramBucket], color: Color, range: ClosedRange<Double>) {
-        switch type {
-        case .heartRate:
-            return (ChartsViewModel.histogram(from: charts.heartRateHistory, range: charts.heartRateRange), .red, charts.heartRateRange)
-        case .power:
-            return (ChartsViewModel.histogram(from: charts.powerHistory, range: charts.powerRange), .orange, charts.powerRange)
-        case .cadence:
-            return (ChartsViewModel.histogram(from: charts.cadenceHistory, range: charts.cadenceRange), .blue, charts.cadenceRange)
-        case .powerToWeight:
-            return (ChartsViewModel.histogram(from: charts.powerToWeightHistory, range: charts.powerToWeightRange), .purple, charts.powerToWeightRange)
+    
+// MARK: - Histogram (time in zones / time in range)
+
+private struct TimeBin: Identifiable {
+    let id: String
+    let label: String
+    let seconds: Double
+}
+
+private func maxHeartRate() -> Double {
+    // Same common approximation used elsewhere: 220 - age
+    let cal = Calendar.current
+    let age = cal.dateComponents([.year], from: store.dateOfBirth, to: Date()).year ?? 0
+    return max(60.0, 220.0 - Double(age))
+}
+
+private func seriesFor(_ type: ChartType) -> [ChartsViewModel.DataPoint] {
+    switch type {
+    case .heartRate: return charts.heartRateHistory
+    case .power: return charts.powerHistory
+    case .cadence: return charts.cadenceHistory
+    case .powerToWeight: return charts.powerToWeightHistory
+    }
+}
+
+/// Converts a list of points into (value, secondsUntilNextPoint) pairs.
+private func valuesWithDurations(_ points: [ChartsViewModel.DataPoint]) -> [(value: Double, dt: Double)] {
+    guard !points.isEmpty else { return [] }
+
+    // Compute dt using timestamps; clamp to avoid huge gaps (sleep/background).
+    var pairs: [(Double, Double)] = []
+    pairs.reserveCapacity(points.count)
+
+    var lastDt: Double = 1.0
+    for i in 0..<points.count {
+        let v = points[i].value
+        var dt = lastDt
+        if i + 1 < points.count {
+            dt = points[i + 1].timestamp.timeIntervalSince(points[i].timestamp)
+            // clamp: ignore long gaps, and protect against negative/zero
+            dt = min(max(dt, 0.2), 5.0)
+            lastDt = dt
+        }
+        pairs.append((v, dt))
+    }
+    return pairs
+}
+
+private func timeInZones(type: ChartType) -> [TimeBin]? {
+    let pairs = valuesWithDurations(seriesFor(type))
+    guard !pairs.isEmpty else { return nil }
+
+    let zones = store.activeZones
+
+    // Determine ratio mapping
+    let ratioForValue: (Double) -> Double?
+    switch type {
+    case .power:
+        let ftp = Double(store.ftp)
+        guard ftp > 0 else { return nil }
+        ratioForValue = { watts in watts / ftp }
+    case .heartRate:
+        let maxHR = maxHeartRate()
+        guard maxHR > 0 else { return nil }
+        ratioForValue = { bpm in bpm / maxHR }
+    default:
+        return nil
+    }
+
+    // Accumulate seconds per zone
+    var secondsByZone: [Int: Double] = [:]
+    for z in zones { secondsByZone[z.id] = 0 }
+
+    for (value, dt) in pairs {
+        guard let ratio = ratioForValue(value) else { continue }
+
+        if let z = zones.first(where: { ratio >= $0.low && ($0.high == nil || ratio < $0.high!) }) {
+            secondsByZone[z.id, default: 0] += dt
         }
     }
-    
-    @ViewBuilder
-    private func histogramView(for type: ChartType) -> some View {
-        let data = histogramData(for: type)
-        
-        if data.buckets.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.secondary.opacity(0.5))
-                Text("No data yet")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+
+    // Build bins in zone order, showing minutes
+    let bins: [TimeBin] = zones.map { z in
+        TimeBin(id: z.name, label: z.name, seconds: secondsByZone[z.id, default: 0])
+    }
+    return bins
+}
+
+private func timeInRange(type: ChartType, maxBuckets: Int = 10) -> [TimeBin] {
+    let pairs = valuesWithDurations(seriesFor(type))
+    guard !pairs.isEmpty else { return [] }
+
+    let values = pairs.map { $0.value }
+    guard let vMin = values.min(), let vMax = values.max() else { return [] }
+
+    let bucketCount = max(1, min(maxBuckets, 10))
+    let span = vMax - vMin
+    let width = span <= 0 ? 1.0 : (span / Double(bucketCount))
+
+    func labelFor(_ lo: Double, _ hi: Double) -> String {
+        switch type {
+        case .powerToWeight:
+            return String(format: "%.1f–%.1f", lo, hi)
+        default:
+            return "\(Int(lo))–\(Int(hi))"
+        }
+    }
+
+    var seconds = Array(repeating: 0.0, count: bucketCount)
+    for (v, dt) in pairs {
+        var idx = 0
+        if span > 0 {
+            idx = Int(((v - vMin) / width).rounded(.down))
+            if idx >= bucketCount { idx = bucketCount - 1 }
+            if idx < 0 { idx = 0 }
+        }
+        seconds[idx] += dt
+    }
+
+    var bins: [TimeBin] = []
+    bins.reserveCapacity(bucketCount)
+    for i in 0..<bucketCount {
+        let lo = vMin + Double(i) * width
+        let hi = (i == bucketCount - 1) ? vMax : (vMin + Double(i + 1) * width)
+        bins.append(TimeBin(id: "\(i)", label: labelFor(lo, hi), seconds: seconds[i]))
+    }
+    return bins
+}
+
+@ViewBuilder
+private func histogramView(for type: ChartType) -> some View {
+    // Prefer zones for HR/Power
+    let zoneBins = timeInZones(type: type)
+
+    let useZones = (type == .heartRate || type == .power) && (zoneBins != nil)
+    let bins: [TimeBin] = useZones ? (zoneBins ?? []) : timeInRange(type: type, maxBuckets: 10)
+    let xTitle: String = useZones ? "Zone" : "Range"
+    // Drop empty bins (0 seconds)
+    let nonZeroBins = bins.filter { $0.seconds > 0 }
+
+    if nonZeroBins.isEmpty {
+        VStack(spacing: 8) {
+            Image(systemName: "chart.bar.fill")
+                .font(.system(size: 28))
+                .foregroundColor(.secondary.opacity(0.5))
+            Text("No data yet")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    } else {
+        // Zone colors from your existing ZwiftZonePalette / zone settings.
+let zoneColorByLabel: [String: Color] = {
+    var dict: [String: Color] = [:]
+    for z in store.activeZones {
+        let i = max(0, min(ZwiftZonePalette.colors.count - 1, z.paletteIndex))
+        dict[z.name] = ZwiftZonePalette.colors[i].preview
+    }
+    return dict
+}()
+let isZoneHistogram = (xTitle == "Zone")
+let totalSeconds = nonZeroBins.reduce(0.0) { $0 + $1.seconds }
+
+        // Precompute y values depending on mode
+        let values: [Double] = nonZeroBins.map { b in
+            switch histogramMode {
+            case .minutes:
+                return b.seconds / 60.0
+            case .percent:
+                return totalSeconds > 0 ? (b.seconds / totalSeconds) * 100.0 : 0.0
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            let maxCount = data.buckets.map(\.count).max() ?? 1
-            Chart(data.buckets) { bucket in
-                BarMark(
-                    x: .value("Value", bucket.midpoint),
-                    y: .value("Count", bucket.count)
-                )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [data.color.opacity(0.7), data.color.opacity(0.3)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+        }
+        let maxY = values.max() ?? 0.0
+        let yUpper = maxY * 1.1 + (histogramMode == .percent ? 2.0 : 0.2)
+
+        Chart(Array(zip(nonZeroBins, values)), id: \.0.id) { pair in
+            let b = pair.0
+            let y = pair.1
+
+            BarMark(
+                x: .value(xTitle, b.label),
+                y: .value(histogramMode == .percent ? "Percent" : "Minutes", y)
+            )
+            .foregroundStyle({
+    if isZoneHistogram {
+        // Prefer explicit mapping from settings (Zone.paletteIndex → ZwiftZonePalette).
+        if let c = zoneColorByLabel[b.label] { return c }
+
+        // Fallback: parse "Z1".."Z7" from the label.
+        let digits = b.label.filter { $0.isNumber }
+        if let n = Int(digits), n > 0 {
+            return zoneColorByLabel["Z\(n)"] ?? type.color
+        }
+
+        return type.color
+    } else {
+        return type.color
+    }
+}())
+        }
+        .chartYScale(domain: 0...yUpper)
+        .chartXAxis {
+            AxisMarks(position: .bottom) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let s = value.as(String.self) {
+                        Text(s).font(.caption2)
+                    }
+                }
             }
-            .chartXScale(domain: data.range)
-            .chartYScale(domain: 0...(Double(maxCount) * 1.1))
-            .chartXAxis {
-                AxisMarks(position: .bottom) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            switch type {
-                            case .powerToWeight:
-                                Text(String(format: "%.1f", v))
-                                    .font(.caption)
-                            default:
-                                Text("\(Int(v))")
-                                    .font(.caption)
-                            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        switch histogramMode {
+                        case .minutes:
+                            Text(v < 10 ? String(format: "%.1f min", v) : "\(Int(v)) min")
+                                .font(.caption2)
+                        case .percent:
+                            Text("\(Int(v))%")
+                                .font(.caption2)
                         }
                     }
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading) { _ in
-                    AxisGridLine()
-                }
-            }
         }
     }
-    
-    private func emptyChartPlaceholder(icon: String, message: String) -> some View {
+}
+private func emptyChartPlaceholder(icon: String, message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 48))
@@ -428,3 +612,4 @@ struct ChartsPanel: View {
         }
     }
 }
+

@@ -8,6 +8,9 @@
 import Foundation
 import IOKit
 import IOKit.usb
+#if canImport(AppKit)
+import AppKit
+#endif
 
 private enum ANT {
     static let syncByte: UInt8 = 0xA4
@@ -293,6 +296,40 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
     private var readTask: Task<Void, Never>? = nil
     private var isOpen = false
 
+    /// When stopping, we close USB only after the read loop has exited.
+    /// This task represents that in-flight close, and reconnect attempts should wait for it.
+    private var usbCloseTask: Task<Void, Never>? = nil
+
+
+    // MARK: - Reliability (timeouts / watchdog / backoff)
+
+    // Requested: USB connection timeout max 2s
+    private let dongleOpenTimeoutNs: UInt64 = 2_000_000_000   // 2.0s
+    private let dongleBootTimeout: TimeInterval = 5.0         // packets should start within this
+    private let readStallTimeout: TimeInterval = 4.0          // no USB packets
+    private let noDataTimeout: TimeInterval = 6.0             // no HR/Power pages
+    private let channelSearchTimeout: TimeInterval = 12.0     // stuck searching
+
+    private var bootStartedAt: TimeInterval = 0
+    private var lastAnyPacketAt: TimeInterval = 0
+    private var lastDataPacketAt: TimeInterval = 0
+
+    private var watchdogTask: Task<Void, Never>? = nil
+    private var reconnectTask: Task<Void, Never>? = nil
+    private var reconnectAttempt: Int = 0
+    private let maxReconnectAttempts: Int = 12
+    private let baseReconnectDelay: TimeInterval = 0.8
+
+    private var openAttemptID: UInt64 = 0
+
+    /// One-time best-effort USB device reset at app start (helps clear stuck firmware states).
+    private var shouldResetUSBOnStart: Bool = true
+
+
+    #if canImport(AppKit)
+    private var sleepWakeObserver: Any? = nil
+    #endif
+
     private let hrChannel: UInt8 = 0
     private let powerChannel: UInt8 = 1
 
@@ -337,9 +374,11 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
 
         state = .disconnected
         status = "ANT+: scanning for USB stick…"
+        startWatchdog()
+        setupSleepWakeObserversOnce()
 
         Task.detached(priority: .userInitiated) { [weak self] in
-            await self?.openDongle()
+            await self?.beginOpenWithTimeout()
         }
     }
 
@@ -358,8 +397,14 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
     }
 
     func stop() {
+        stopWatchdog()
+        cancelReconnect()
         // Abort any blocking ReadPipe first, then cancel the read task.
         abortUSBPipes()
+
+        // If a previous close is still in-flight, cancel it (we'll create a new one below).
+        usbCloseTask?.cancel()
+        usbCloseTask = nil
 
         let task = readTask
         task?.cancel()
@@ -368,12 +413,14 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
         // Release USB resources only after the read loop has fully exited
         // to avoid use-after-free on interface pointers.
         if let task {
-            Task { @MainActor [weak self] in
+            usbCloseTask = Task { @MainActor [weak self] in
                 _ = await task.result
                 self?.closeUSB()
+                self?.usbCloseTask = nil
             }
         } else {
             closeUSB()
+            usbCloseTask = nil
         }
 
         isOpen = false
@@ -425,6 +472,29 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
                 self.state = .error
                 self.status = "ANT+: failed to open USB device"
             }
+            return
+        }
+
+
+        // One-time best-effort "power cycle" at app start.
+        // We reset the USB device and then reopen cleanly.
+        let doReset: Bool = await MainActor.run {
+            let v = self.shouldResetUSBOnStart
+            self.shouldResetUSBOnStart = false
+            return v
+        }
+        if doReset {
+            await MainActor.run {
+                self.status = "ANT+: power-cycling USB device…"
+                self.powerCycleUSBDeviceBestEffort()
+            }
+            // Close everything and reconnect after a short delay so the device can re-enumerate.
+            await MainActor.run {
+                self.isOpen = false
+                self.state = .disconnected
+            }
+            await MainActor.run { self.closeUSB() }
+            await MainActor.run { self.scheduleReconnect(reason: "usb reset on app start") }
             return
         }
 
@@ -503,12 +573,16 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
 
     // Applies a batch of parsed updates on the MainActor.
     private func applyParsedEvents(_ events: [ParsedEvent]) {
+        let now = CFAbsoluteTimeGetCurrent()
+        if !events.isEmpty { lastAnyPacketAt = now }
+
         var shouldUpdateStatus = false
 
         for ev in events {
             switch ev {
             case let .heartRate(bpm, firstPacket):
                 heartRateBPM = bpm
+                lastDataPacketAt = now
                 if firstPacket {
                     hrDeviceFound = true
                     connectedHRName = "ANT+ HR Sensor"
@@ -519,6 +593,7 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
 
             case let .power(watts, cadence, firstPacket):
                 powerWatts = watts
+                lastDataPacketAt = now
                 if let cadence { cadenceRPM = cadence }
                 if firstPacket {
                     powerDeviceFound = true
@@ -530,6 +605,7 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
 
             case let .cadence(rpm):
                 cadenceRPM = rpm
+                lastDataPacketAt = now
 
             case let .channelSearchTimeout(channel):
                 if channel == hrChannel {
@@ -778,14 +854,38 @@ final class ANTPlusSensorViewModel: NSObject, ObservableObject, @unchecked Senda
     }
 
     /// Abort any blocking pipe I/O without releasing the interface pointers.
-    /// Safe to call before cancelling the read task.
-    private func abortUSBPipes() {
-        guard let iface = interfaceInterfacePtr?.pointee.pointee else { return }
-        if inPipeRef != 0 {
-            _ = iface.AbortPipe(interfaceInterfacePtr, inPipeRef)
+/// Safe to call before cancelling the read task (breaks a stuck ReadPipe/WritePipe).
+private func abortUSBPipes() {
+    guard let iface = interfaceInterfacePtr?.pointee.pointee else { return }
+    if inPipeRef != 0 {
+        _ = iface.AbortPipe(interfaceInterfacePtr, inPipeRef)
+    }
+    if outPipeRef != 0 {
+        _ = iface.AbortPipe(interfaceInterfacePtr, outPipeRef)
+    }
+}
+
+/// Low-level USB write. On failure, we treat it like a disconnect and restart with backoff.
+private func writeToUSB(_ data: Data) {
+        guard let iface = interfaceInterfacePtr?.pointee.pointee, outPipeRef != 0 else { return }
+
+        let bytes = [UInt8](data)
+
+        let result: IOReturn = bytes.withUnsafeBytes { rawBuf in
+            guard let base = rawBuf.baseAddress else { return kIOReturnBadArgument }
+            let ptr = UnsafeMutableRawPointer(mutating: base)
+            return iface.WritePipe(interfaceInterfacePtr, outPipeRef, ptr, UInt32(bytes.count))
         }
-        if outPipeRef != 0 {
-            _ = iface.AbortPipe(interfaceInterfacePtr, outPipeRef)
+
+        if result != kIOReturnSuccess {
+            let hex = String(format: "%08X", result)
+            print("❌ [ANT+] WritePipe failed: 0x\(hex)")
+            // Treat write failures as a disconnect and restart with backoff.
+            if isOpen {
+                state = .error
+                status = "ANT+: USB write failed (0x\(hex))"
+                restartDongle(reason: "WritePipe 0x\(hex)")
+            }
         }
     }
 
@@ -801,8 +901,34 @@ func closeUSBInterfaceOnly() {
         outPipeRef = 0
     }
 
+
+    /// Best-effort "power cycle" for a stuck ANT+ dongle.
+    /// This is not a true port power-off, but ResetDevice typically clears hung firmware/USB state.
+    @MainActor
+    private func powerCycleUSBDeviceBestEffort() {
+        guard let devPtr = deviceInterfacePtr else { return }
+        let dev = devPtr.pointee.pointee
+
+        let r1 = dev.ResetDevice(devPtr)
+        if r1 != kIOReturnSuccess {
+            print("⚠️ [ANT+] ResetDevice failed: \(String(format: "0x%08X", r1))")
+        } else {
+            print("✅ [ANT+] ResetDevice OK")
+        }
+
+        // Some SDKs expose USBDeviceReEnumerate. If your headers support it, you can enable this too:
+        // let r2 = dev.USBDeviceReEnumerate(devPtr, 0)
+        // if r2 != kIOReturnSuccess {
+        //     print("⚠️ [ANT+] USBDeviceReEnumerate failed: \(String(format: "0x%08X", r2))")
+        // } else {
+        //     print("✅ [ANT+] USBDeviceReEnumerate OK")
+        // }
+    }
+
     private func closeUSB() {
         closeUSBInterfaceOnly()
+
+        powerCycleUSBDeviceBestEffort()
 
         if let dev = deviceInterfacePtr?.pointee.pointee {
             _ = dev.USBDeviceClose(deviceInterfacePtr)
@@ -815,21 +941,6 @@ func closeUSBInterfaceOnly() {
 
     // MARK: - USB Read / Write (correct pointers)
 
-    private func writeToUSB(_ data: Data) {
-        guard let iface = interfaceInterfacePtr?.pointee.pointee, outPipeRef != 0 else { return }
-
-        let bytes = [UInt8](data)
-
-        let result: IOReturn = bytes.withUnsafeBytes { rawBuf in
-            guard let base = rawBuf.baseAddress else { return kIOReturnBadArgument }
-            let ptr = UnsafeMutableRawPointer(mutating: base)
-            return iface.WritePipe(interfaceInterfacePtr, outPipeRef, ptr, UInt32(bytes.count))
-        }
-
-        if result != kIOReturnSuccess {
-            print("❌ [ANT+] WritePipe failed: 0x\(String(format: "%08X", result))")
-        }
-    }
 
     nonisolated private func readLoop(
         interfacePtr: UnsafeMutablePointer<UnsafeMutablePointer<IOUSBInterfaceInterface182>>,
@@ -871,6 +982,191 @@ func closeUSBInterfaceOnly() {
                 try? await Task.sleep(nanoseconds: 5_000_000)
             }
         }
+    }
+
+
+    // MARK: - Reliability helpers
+
+    private func beginOpenWithTimeout() async {
+        openAttemptID &+= 1
+        let attemptID = openAttemptID
+
+        let now = CFAbsoluteTimeGetCurrent()
+        bootStartedAt = now
+        lastAnyPacketAt = now
+        lastDataPacketAt = 0
+
+        let openTask = Task(priority: .userInitiated) { [weak self] in
+            await self?.openDongle()
+        }
+
+        try? await Task.sleep(nanoseconds: dongleOpenTimeoutNs)
+
+        guard attemptID == openAttemptID else { return }
+        guard !Task.isCancelled else { return }
+        guard !isOpen else { return }
+
+        openTask.cancel()
+        status = "ANT+: USB open timeout — will retry"
+        forceResetUSB()
+        scheduleReconnect(reason: "usb open timeout")
+    }
+
+    private func startWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await MainActor.run { [weak self] in
+                    self?.checkTimeoutsOnMain()
+                }
+            }
+        }
+    }
+
+    private func stopWatchdog() {
+        watchdogTask?.cancel()
+        watchdogTask = nil
+    }
+
+    @MainActor
+    private func checkTimeoutsOnMain() {
+        guard isOpen else { return }
+        let now = CFAbsoluteTimeGetCurrent()
+
+        if state == .searching,
+           now - bootStartedAt > dongleBootTimeout,
+           lastAnyPacketAt <= bootStartedAt + 0.05 {
+            restartDongle(reason: "boot timeout")
+            return
+        }
+
+        if now - lastAnyPacketAt > readStallTimeout {
+            restartDongle(reason: "read stall")
+            return
+        }
+
+        if lastDataPacketAt > 0, now - lastDataPacketAt > noDataTimeout {
+            restartDongle(reason: "no data")
+            return
+        }
+
+        if state == .searching,
+           now - bootStartedAt > channelSearchTimeout,
+           donglesAvailable > 0,
+           !hrDeviceFound && !powerDeviceFound {
+            restartDongle(reason: "search timeout")
+            return
+        }
+    }
+
+    @MainActor
+    private func restartDongle(reason: String) {
+        status = "ANT+: restarting (\(reason))"
+        stop()
+        scheduleReconnect(reason: reason)
+    }
+
+    private func cancelReconnect() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+    }
+
+    private func scheduleReconnect(reason: String) {
+        guard reconnectAttempt < maxReconnectAttempts else {
+            state = .error
+            status = "ANT+: reconnect failed (\(reason))"
+            return
+        }
+
+        cancelReconnect()
+        reconnectAttempt += 1
+        let delay = min(baseReconnectDelay * pow(2.0, Double(reconnectAttempt - 1)), 20.0)
+        status = "ANT+: reconnecting in \(String(format: "%.1f", delay))s (\(reason))"
+
+        reconnectTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            if Task.isCancelled { return }
+
+            // Ensure the previous USB session is actually closed before attempting to reopen.
+            await Task { @MainActor in
+                await self.waitForUSBCloseOrForceReset(maxWaitSeconds: 2.0)
+                self.start()
+            }.value
+        }
+    }
+
+    /// Wait for the stop() close task to complete (best-effort), but never longer than maxWaitSeconds.
+    /// If it doesn't finish in time, we force-reset the pointers and proceed.
+    @MainActor
+    private func waitForUSBCloseOrForceReset(maxWaitSeconds: TimeInterval) async {
+        guard let closeTask = usbCloseTask else { return }
+
+        let timeoutNs = UInt64(maxWaitSeconds * 1_000_000_000)
+
+        let finished: Bool = await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                _ = await closeTask.result
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNs)
+                return false
+            }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
+
+        if finished {
+            usbCloseTask = nil
+            return
+        }
+
+        // If we couldn't confirm a clean close quickly, force-reset. This avoids reconnect races.
+        status = "ANT+: USB close timeout — forcing reset"
+        forceResetUSB()
+        usbCloseTask?.cancel()
+        usbCloseTask = nil
+    }
+
+    private func forceResetUSB() {
+        if let iface = interfaceInterfacePtr {
+            _ = iface.pointee.pointee.USBInterfaceClose(iface)
+            _ = iface.pointee.pointee.Release(iface)
+            interfaceInterfacePtr = nil
+        }
+
+        if let dev = deviceInterfacePtr {
+            _ = dev.pointee.pointee.USBDeviceClose(dev)
+            _ = dev.pointee.pointee.Release(dev)
+            deviceInterfacePtr = nil
+        }
+
+        inPipeRef = 0
+        outPipeRef = 0
+        isOpen = false
+    }
+
+    private func setupSleepWakeObserversOnce() {
+        #if canImport(AppKit)
+        if sleepWakeObserver != nil { return }
+        sleepWakeObserver = NotificationCenter.default.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.status = "ANT+: Mac woke — restarting ANT+"
+                self.stop()
+                self.reconnectAttempt = 0
+                self.scheduleReconnect(reason: "wake")
+            }
+        }
+        #endif
     }
 
 }
