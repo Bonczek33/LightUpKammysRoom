@@ -11,6 +11,7 @@ import SwiftUI
 
 struct BluetoothStatusBar: View {
     @ObservedObject var bt: BluetoothSensorsViewModel
+    @ObservedObject var store: UserConfigStore
 
     var body: some View {
         HStack(spacing: 18) {
@@ -42,6 +43,12 @@ struct BluetoothStatusBar: View {
 
             Spacer()
 
+            Button(connectButtonTitle) {
+                toggleConnection()
+            }
+            .buttonStyle(.bordered)
+            .help(connectButtonHelp)
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text("HR: \(bt.connectedHRName ?? "—")")
                     .font(.caption)
@@ -61,6 +68,29 @@ struct BluetoothStatusBar: View {
         }
     }
 
+    private var isConnected: Bool {
+        bt.connectedHRName != nil || bt.connectedPowerName != nil
+    }
+
+    private var connectButtonTitle: String { isConnected ? "Disconnect" : "Connect" }
+
+    private var connectButtonHelp: String {
+        isConnected ? "Disconnect from current BLE sensors." : "Connect to last known sensors (or scan if none are saved)."
+    }
+
+    private func toggleConnection() {
+        if isConnected {
+            bt.disconnectAll()
+        } else {
+            // Prefer last known devices if available; otherwise start scanning.
+            if (store.lastHRPeripheralID != nil || store.lastPowerPeripheralID != nil) {
+                bt.autoReconnect(hrUUID: store.lastHRPeripheralID, powerUUID: store.lastPowerPeripheralID)
+            } else {
+                bt.startScan()
+            }
+        }
+    }
+
     private var retryLabel: String {
         var parts: [String] = []
         if bt.isRetryingHR { parts.append("HR \(bt.hrRetryCount)/5") }
@@ -73,6 +103,7 @@ struct BluetoothStatusBar: View {
 
 struct ANTPlusStatusBar: View {
     @ObservedObject var antPlus: ANTPlusSensorViewModel
+    @ObservedObject var store: UserConfigStore
 
     var body: some View {
         HStack(spacing: 18) {
@@ -103,6 +134,12 @@ struct ANTPlusStatusBar: View {
 
             Spacer()
 
+            Button(antButtonTitle) {
+                toggleANT()
+            }
+            .buttonStyle(.bordered)
+            .help(antButtonHelp)
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text("HR: \(antPlus.connectedHRName ?? "—")")
                     .font(.caption)
@@ -117,6 +154,25 @@ struct ANTPlusStatusBar: View {
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(maxWidth: 200, alignment: .trailing)
+        }
+    }
+
+    private var isConnected: Bool { antPlus.state == .connected }
+
+    private var antButtonTitle: String { isConnected ? "Disconnect" : "Connect" }
+
+    private var antButtonHelp: String {
+        isConnected ? "Stop ANT+ and close the dongle." : "Start ANT+ and search/connect using last known device numbers (or wildcard)."
+    }
+
+    private func toggleANT() {
+        if isConnected {
+            antPlus.stop()
+        } else {
+            antPlus.autoReconnect(
+                hrDeviceNumber: store.lastANTHRDeviceNumber,
+                powerDeviceNumber: store.lastANTPowerDeviceNumber
+            )
         }
     }
 
@@ -337,7 +393,7 @@ struct LIFXPanel: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                Button("Scan LIFX") { vm.scan() }
+                Button(lifxButtonTitle) { toggleLIFX() }
                     .help("Broadcast a UDP discovery packet to find all LIFX lights on your local network.")
                 Text(vm.status).foregroundColor(.secondary)
                 Spacer()
@@ -374,4 +430,25 @@ struct LIFXPanel: View {
             }
         }
     }
+
+
+private var lifxIsActive: Bool { vm.isActive }
+private var lifxButtonTitle: String { lifxIsActive ? "Disconnect LIFX" : "Connect LIFX" }
+
+private func toggleLIFX() {
+    if lifxIsActive {
+        vm.stop()
+    } else {
+        if store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
+            vm.aliasByID = store.aliasesByID
+            vm.autoReconnectLights(
+                savedEntries: store.savedLightEntries,
+                savedSelectedIDs: store.savedSelectedLightIDs
+            )
+        } else {
+            vm.scan()
+        }
+    }
 }
+}
+

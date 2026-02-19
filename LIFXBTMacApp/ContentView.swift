@@ -27,10 +27,17 @@ struct ContentView: View {
 
                 // Compact sensor status bar — shows BLE or ANT+ based on setting
                 if store.sensorInputSource == "ant+" {
-                    ANTPlusStatusBar(antPlus: antPlus)
+                    ANTPlusStatusBar(antPlus: antPlus, store: store)
                 } else {
-                    BluetoothStatusBar(bt: bt)
+                    BluetoothStatusBar(bt: bt, store: store)
                 }
+
+
+
+// Startup master switch (BLE / ANT+ / LIFX)
+Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
+    .toggleStyle(.switch)
+    .help("If disabled, the app will not auto-connect sensors or lights on launch. Use the Connect buttons to start/stop connections.")
 
                 AutoColorPanel(
                     auto: auto,
@@ -68,7 +75,7 @@ struct ContentView: View {
             }
 
             // Auto-reconnect to last known BT devices (only in BLE mode)
-            if store.sensorInputSource == "ble" && store.btAutoReconnect {
+            if store.connectOnLaunch && store.sensorInputSource == "ble" && store.btAutoReconnect {
                 bt.autoReconnect(
                     hrUUID: store.lastHRPeripheralID,
                     powerUUID: store.lastPowerPeripheralID
@@ -76,7 +83,7 @@ struct ContentView: View {
             }
 
             // Start ANT+ if that's the selected source and auto-reconnect is enabled
-            if store.sensorInputSource == "ant+" && store.antPlusAutoReconnect {
+            if store.connectOnLaunch && store.sensorInputSource == "ant+" && store.antPlusAutoReconnect {
                 antPlus.autoReconnect(
                     hrDeviceNumber: store.lastANTHRDeviceNumber,
                     powerDeviceNumber: store.lastANTPowerDeviceNumber
@@ -98,7 +105,7 @@ struct ContentView: View {
             }
 
             // Auto-reconnect to last known LIFX lights
-            if store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
+            if store.connectOnLaunch && store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
                 lifx.aliasByID = store.aliasesByID
                 lifx.autoReconnectLights(
                     savedEntries: store.savedLightEntries,
