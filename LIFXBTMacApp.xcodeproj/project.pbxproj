@@ -26,6 +26,11 @@
 		96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */; };
 		96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC62F3286A700E17BB2 /* ContentView.swift */; };
 		96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC92F32936D00E17BB2 /* WindowSizing.swift */; };
+		C252B59C2F48C2610011BAAD /* GeneralSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B59B2F48C2610011BAAD /* GeneralSettingsTab.swift */; };
+		C252B5A02F48C27B0011BAAD /* LightsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B59F2F48C27B0011BAAD /* LightsSettingsTab.swift */; };
+		C252B5A22F48C28F0011BAAD /* ZonesSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B5A12F48C28F0011BAAD /* ZonesSettingsTab.swift */; };
+		C252B5A42F48C2960011BAAD /* AboutSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B5A32F48C2960011BAAD /* AboutSettingsTab.swift */; };
+		C252B5A62F48C2F10011BAAD /* SensorsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B5A52F48C2F10011BAAD /* SensorsSettingsTab.swift */; };
 		C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */; };
 		C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
@@ -74,6 +79,11 @@
 		96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXDiscoveryViewModel.swift; sourceTree = "<group>"; };
 		96253CC62F3286A700E17BB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		96253CC92F32936D00E17BB2 /* WindowSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSizing.swift; sourceTree = "<group>"; };
+		C252B59B2F48C2610011BAAD /* GeneralSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsTab.swift; sourceTree = "<group>"; };
+		C252B59F2F48C27B0011BAAD /* LightsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightsSettingsTab.swift; sourceTree = "<group>"; };
+		C252B5A12F48C28F0011BAAD /* ZonesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZonesSettingsTab.swift; sourceTree = "<group>"; };
+		C252B5A32F48C2960011BAAD /* AboutSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsTab.swift; sourceTree = "<group>"; };
+		C252B5A52F48C2F10011BAAD /* SensorsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorsSettingsTab.swift; sourceTree = "<group>"; };
 		C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsPanel.swift; sourceTree = "<group>"; };
 		C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsViewModel.swift; sourceTree = "<group>"; };
 		C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLightsView.swift; sourceTree = "<group>"; };
@@ -130,6 +140,10 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C252B5A32F48C2960011BAAD /* AboutSettingsTab.swift */,
+				C252B5A12F48C28F0011BAAD /* ZonesSettingsTab.swift */,
+				C252B59F2F48C27B0011BAAD /* LightsSettingsTab.swift */,
+				C252B59B2F48C2610011BAAD /* GeneralSettingsTab.swift */,
 				C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */,
 				C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */,
 				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
@@ -153,6 +167,7 @@
 				96253C862F32857B00E17BB2 /* LIFXBTMacApp.entitlements */,
 				96253C832F32857B00E17BB2 /* Preview Content */,
 				C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */,
+				C252B5A52F48C2F10011BAAD /* SensorsSettingsTab.swift */,
 			);
 			path = LIFXBTMacApp;
 			sourceTree = "<group>";
@@ -341,17 +356,22 @@
 				96253CC32F3285E400E17BB2 /* ZwiftZonePalette.swift in Sources */,
 				96253CBC2F3285A800E17BB2 /* Panels.swift in Sources */,
 				C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */,
+				C252B5A02F48C27B0011BAAD /* LightsSettingsTab.swift in Sources */,
 				96253CBA2F3285A800E17BB2 /* LIFXBTMacApp.swift in Sources */,
 				C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */,
+				C252B59C2F48C2610011BAAD /* GeneralSettingsTab.swift in Sources */,
 				96253CC02F3285A800E17BB2 /* Zones.swift in Sources */,
 				96253CC12F3285A800E17BB2 /* BluetoothSensorsViewModel.swift in Sources */,
 				96253CB92F3285A800E17BB2 /* LIFXLanDiscovery.swift in Sources */,
 				C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */,
+				C252B5A62F48C2F10011BAAD /* SensorsSettingsTab.swift in Sources */,
+				C252B5A22F48C28F0011BAAD /* ZonesSettingsTab.swift in Sources */,
 				96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */,
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
 				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
 				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,
+				C252B5A42F48C2960011BAAD /* AboutSettingsTab.swift in Sources */,
 				96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */,
 				96253CB72F3285A800E17BB2 /* Models.swift in Sources */,
 			);
