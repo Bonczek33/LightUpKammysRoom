@@ -122,14 +122,12 @@ private struct ConnectSensorsButton: View {
                   ? "Connect to last-used BLE sensors: \(lastKnownSummary)"
                   : "No saved sensors. Connect via Settings > Bluetooth first.")
 
-            if isConnected || isConnecting {
-                Button {
-                    bt.disconnectAll()
-                } label: {
-                    Label("Disconnect", systemImage: "cable.connector.slash")
-                }
-                .help("Disconnect all BLE sensors.")
+            Button {
+                bt.disconnectAll()
+            } label: {
+                Label("Disconnect", systemImage: "cable.connector.slash")
             }
+            .help("Disconnect all BLE sensors.")
 
             Text(lastKnownSummary)
                 .font(.caption)
@@ -245,14 +243,12 @@ private struct ConnectANTPlusButton: View {
                   ? "Connect to last-used ANT+ sensors: \(lastKnownSummary)"
                   : "No saved sensors. Connect via Settings > Bluetooth first.")
 
-            if isConnected || isSearching {
-                Button {
-                    antPlus.stop()
-                } label: {
-                    Label("Disconnect", systemImage: "cable.connector.slash")
-                }
-                .help("Stop ANT+ and disconnect all sensors.")
+            Button {
+                antPlus.stop()
+            } label: {
+                Label("Disconnect", systemImage: "cable.connector.slash")
             }
+            .help("Stop ANT+ and disconnect all sensors.")
 
             Text(lastKnownSummary)
                 .font(.caption)

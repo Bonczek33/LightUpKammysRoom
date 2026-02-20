@@ -2,6 +2,13 @@
 //  UserConfigStore.swift
 //  LIFXBTMacApp
 //
+//  Persists and vends all user configuration except profile data (DOB, FTP,
+//  weight), which is managed by ProfileStore / UserProfile.
+//
+//  Call applyProfile(_:) to push an active UserProfile's values into this
+//  store and trigger a save + settingsDidChange notification. ContentView
+//  calls this whenever Notification.Name.activeProfileDidChange fires.
+//
 //  Created by Tomasz Bak on 2/16/26.
 //
 
@@ -239,6 +246,17 @@ final class UserConfigStore: ObservableObject {
         return cz.map { Zone(id: $0.id, name: $0.name, low: $0.low, high: $0.high, paletteIndex: $0.paletteIndex, label: $0.label) }
     }
     
+    /// Push a UserProfile's physiological values into this store and save.
+    /// Call this whenever the active profile changes so the rest of the app
+    /// (zone calculations, W/kg, max HR) picks up the new values immediately.
+    func applyProfile(_ profile: UserProfile) {
+        dateOfBirth = profile.dateOfBirth
+        ftp         = profile.ftp
+        weightKg    = profile.weightKg
+        save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+    }
+
     /// Persist zone edits from the UI
     func saveCustomZones(_ zones: [PersistedZone]) {
         customZones = zones

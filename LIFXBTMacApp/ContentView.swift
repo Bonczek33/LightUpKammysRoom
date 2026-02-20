@@ -8,12 +8,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    @ObservedObject var bt: BluetoothSensorsViewModel
-    @ObservedObject var antPlus: ANTPlusSensorViewModel
-    @ObservedObject var lifx: LIFXDiscoveryViewModel
-    @ObservedObject var auto: AutoColorController
-    @ObservedObject var store: UserConfigStore
-    @ObservedObject var charts: ChartsViewModel
+    @ObservedObject var bt:       BluetoothSensorsViewModel
+    @ObservedObject var antPlus:  ANTPlusSensorViewModel
+    @ObservedObject var lifx:     LIFXDiscoveryViewModel
+    @ObservedObject var auto:     AutoColorController
+    @ObservedObject var store:    UserConfigStore
+    @ObservedObject var charts:   ChartsViewModel
+    @ObservedObject var profiles: ProfileStore
 
     private let intFormatter: NumberFormatter = {
         let f = NumberFormatter()
@@ -52,6 +53,9 @@ struct ContentView: View {
         .environmentObject(bt)
         .task {
             store.load()
+
+            // Apply the active profile's physiological values on startup.
+            if let p = profiles.activeProfile { store.applyProfile(p) }
 
             // Bind auto color controller and charts to the active sensor source.
             // No auto-reconnect here — user connects manually via the Connect buttons.
@@ -96,6 +100,20 @@ struct ContentView: View {
                     store.load()
                     applyStore()
                     bindSensorSource()
+                }
+            }
+
+            // When the active profile changes, push its values into the store.
+            // applyProfile saves + posts settingsDidChange, so applyStore runs next tick.
+            NotificationCenter.default.addObserver(
+                forName: .activeProfileDidChange,
+                object: nil,
+                queue: .main
+            ) { note in
+                Task { @MainActor in
+                    if let profile = note.userInfo?["profile"] as? UserProfile {
+                        store.applyProfile(profile)
+                    }
                 }
             }
         }

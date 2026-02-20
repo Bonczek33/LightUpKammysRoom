@@ -4,8 +4,20 @@
 //
 //  App entry point. Owns all top-level @StateObject view models and wires them
 //  into the main ContentView and the Settings panel. Each settings tab lives
-//  in its own file (Settings+General, Settings+Sensors, Settings+Lights,
-//  Settings+Zones, Settings+About).
+//  in its own file:
+//    Settings+Profile.swift  — rider profiles (DOB / FTP / weight)
+//    Settings+General.swift  — intensity modulation & power smoothing
+//    Settings+Sensors.swift  — BLE / ANT+ sensor management
+//    Settings+Lights.swift   — LIFX light management
+//    Settings+Zones.swift    — training zone configuration
+//    Settings+About.swift    — app info
+//
+//  Profile → store pipeline
+//  ─────────────────────────
+//  ProfileStore.activate / update  →  posts activeProfileDidChange
+//  ContentView.onReceive           →  calls UserConfigStore.applyProfile(_:)
+//  UserConfigStore.applyProfile    →  sets dateOfBirth/ftp/weightKg, saves,
+//                                     posts settingsDidChange
 //
 //  Created by Tomasz Bak on 2/16/26.
 //
@@ -25,25 +37,29 @@ extension Notification.Name {
 
 @main
 struct LIFXBTMacApp: App {
-    @StateObject private var bt      = BluetoothSensorsViewModel()
-    @StateObject private var antPlus = ANTPlusSensorViewModel()
-    @StateObject private var lifx    = LIFXDiscoveryViewModel()
-    @StateObject private var store   = UserConfigStore()
-    @StateObject private var auto    = AutoColorController()
-    @StateObject private var charts  = ChartsViewModel()
+    @StateObject private var bt       = BluetoothSensorsViewModel()
+    @StateObject private var antPlus  = ANTPlusSensorViewModel()
+    @StateObject private var lifx     = LIFXDiscoveryViewModel()
+    @StateObject private var store    = UserConfigStore()
+    @StateObject private var auto     = AutoColorController()
+    @StateObject private var charts   = ChartsViewModel()
+    @StateObject private var profiles = ProfileStore()
 
     var body: some Scene {
         WindowGroup("Light Up Kammy's Room") {
             ContentView(
-                bt: bt,
-                antPlus: antPlus,
-                lifx: lifx,
-                auto: auto,
-                store: store,
-                charts: charts
+                bt:       bt,
+                antPlus:  antPlus,
+                lifx:     lifx,
+                auto:     auto,
+                store:    store,
+                charts:   charts,
+                profiles: profiles
             )
             .onAppear {
                 bringMainWindowToFront()
+                // Apply the persisted active profile on first launch
+                if let p = profiles.activeProfile { store.applyProfile(p) }
             }
         }
         .defaultSize(width: 1000, height: 1000)
@@ -52,21 +68,23 @@ struct LIFXBTMacApp: App {
         #if swift(>=5.9)
         Settings {
             SettingsView()
-                .frame(width: 1000, height: 600, alignment: .center)
+                .frame(width: 1100, height: 650, alignment: .center)
                 .environmentObject(bt)
                 .environmentObject(antPlus)
                 .environmentObject(lifx)
                 .environmentObject(store)
                 .environmentObject(auto)
                 .environmentObject(charts)
+                .environmentObject(profiles)
         }
         .windowResizability(.contentSize)
-        .defaultSize(width: 1000, height: 600)
+        .defaultSize(width: 1100, height: 650)
         .defaultPosition(.center)
         #else
         Settings {
             SettingsView()
                 .environmentObject(bt)
+                .environmentObject(profiles)
         }
         #endif
     }
@@ -74,11 +92,13 @@ struct LIFXBTMacApp: App {
 
 // MARK: - Settings shell
 
-/// Top-level settings window containing one tab per concern.
-/// Each tab is defined in its own Settings+*.swift file.
+/// Top-level settings window. One tab per concern.
 struct SettingsView: View {
     var body: some View {
         TabView {
+            ProfileSettingsTab()
+                .tabItem { Label("Profile", systemImage: "person.2") }
+
             GeneralSettingsTab()
                 .tabItem { Label("General", systemImage: "gear") }
 
