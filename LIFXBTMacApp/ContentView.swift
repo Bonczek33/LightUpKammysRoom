@@ -32,6 +32,10 @@ struct ContentView: View {
                     BluetoothStatusBar(bt: bt, store: store)
                 }
 
+                LIFXStatusBar(vm: lifx, store: store)
+
+                Divider()
+
                 AutoColorPanel(
                     auto: auto,
                     store: store,

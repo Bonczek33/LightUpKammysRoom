@@ -30,7 +30,6 @@
 		C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
 		C29ED3312F44C3CD0002B4BE /* BuildNumber.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */; };
-		C29ED3332F44D51C0002B4BE /* Untitled.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3322F44D51A0002B4BE /* Untitled.swift */; };
 		C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */; };
 /* End PBXBuildFile section */
 
@@ -80,7 +79,6 @@
 		C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLightsView.swift; sourceTree = "<group>"; };
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildNumber.xcconfig; sourceTree = "<group>"; };
-		C29ED3322F44D51A0002B4BE /* Untitled.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Untitled.swift; sourceTree = "<group>"; };
 		C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ANTPlusSensorViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -132,7 +130,6 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
-				C29ED3322F44D51A0002B4BE /* Untitled.swift */,
 				C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */,
 				C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */,
 				C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */,
@@ -352,7 +349,6 @@
 				C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */,
 				96253CBE2F3285A800E17BB2 /* LightRow.swift in Sources */,
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
-				C29ED3332F44D51C0002B4BE /* Untitled.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
 				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
 				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,

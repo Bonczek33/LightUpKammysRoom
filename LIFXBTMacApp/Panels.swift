@@ -458,6 +458,70 @@ struct ZoneLegendView: View {
     }
 }
 
+// MARK: - LIFX Status Bar (main GUI — connect only)
+
+struct LIFXStatusBar: View {
+    @ObservedObject var vm: LIFXDiscoveryViewModel
+    @ObservedObject var store: UserConfigStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 18) {
+                Label("Lights", systemImage: "lightbulb.fill")
+                    .font(.headline)
+                    .help("LIFX light connections. Manage lights in Settings > Lights.")
+
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                    .help(statusTooltip)
+
+                StatPill(title: "Connected", value: "\(vm.lights.count)")
+                    .help("Number of discovered LIFX lights.")
+                StatPill(title: "Selected", value: "\(vm.selectedIDs.count)")
+                    .help("Lights that will receive auto color updates.")
+
+                if vm.status.hasPrefix("Reconnecting") || vm.status.hasPrefix("Scanning") {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.small)
+                        Text(vm.status)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+
+                Spacer()
+
+                Text(vm.status)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 200, alignment: .trailing)
+                    .help("Current LIFX discovery / connection status.")
+            }
+
+            HStack(spacing: 8) {
+                ConnectLightsButton(vm: vm, store: store)
+                Spacer()
+            }
+        }
+    }
+
+    private var statusColor: Color {
+        if vm.status.hasPrefix("Reconnecting") || vm.status.hasPrefix("Scanning") {
+            return .orange
+        }
+        return vm.lights.isEmpty ? .red : .green
+    }
+
+    private var statusTooltip: String {
+        if vm.status.hasPrefix("Reconnecting") || vm.status.hasPrefix("Scanning") {
+            return "Searching for lights…"
+        }
+        return vm.lights.isEmpty ? "No lights connected." : "\(vm.lights.count) light(s) connected."
+    }
+}
+
 // MARK: - LIFX Panel
 
 struct LIFXPanel: View {
@@ -516,7 +580,7 @@ struct LIFXPanel: View {
 // MARK: - Connect Lights Button
 
 /// Reconnects to last-known LIFX lights (saved IPs / selection) without a full scan.
-private struct ConnectLightsButton: View {
+struct ConnectLightsButton: View {
     @ObservedObject var vm: LIFXDiscoveryViewModel
     @ObservedObject var store: UserConfigStore
 
