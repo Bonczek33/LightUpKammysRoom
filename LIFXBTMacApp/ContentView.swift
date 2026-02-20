@@ -32,13 +32,6 @@ struct ContentView: View {
                     BluetoothStatusBar(bt: bt, store: store)
                 }
 
-
-
-// Startup master switch (BLE / ANT+ / LIFX)
-Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
-    .toggleStyle(.switch)
-    .help("If disabled, the app will not auto-connect sensors or lights on launch. Use the Connect buttons to start/stop connections.")
-
                 AutoColorPanel(
                     auto: auto,
                     store: store,
@@ -47,7 +40,7 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
 
                 Divider()
 
-                ChartsPanel(charts: charts, store: store)
+                ChartsPanel(charts: charts)
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -56,11 +49,12 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
         .task {
             store.load()
 
-            // Bind auto color controller and charts to the active sensor source
+            // Bind auto color controller and charts to the active sensor source.
+            // No auto-reconnect here — user connects manually via the Connect buttons.
             bindSensorSource()
             applyStore()
 
-            // Remember connected BT devices for auto-reconnect
+            // Remember the last connected BLE devices so Connect can restore them.
             bt.onDeviceConnected = { [weak store] id, name, isHR, isPower in
                 guard let store else { return }
                 if isHR {
@@ -74,23 +68,7 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
                 store.save()
             }
 
-            // Auto-reconnect to last known BT devices (only in BLE mode)
-            if store.connectOnLaunch && store.sensorInputSource == "ble" && store.btAutoReconnect {
-                bt.autoReconnect(
-                    hrUUID: store.lastHRPeripheralID,
-                    powerUUID: store.lastPowerPeripheralID
-                )
-            }
-
-            // Start ANT+ if that's the selected source and auto-reconnect is enabled
-            if store.connectOnLaunch && store.sensorInputSource == "ant+" && store.antPlusAutoReconnect {
-                antPlus.autoReconnect(
-                    hrDeviceNumber: store.lastANTHRDeviceNumber,
-                    powerDeviceNumber: store.lastANTPowerDeviceNumber
-                )
-            }
-
-            // Remember connected ANT+ devices for auto-reconnect
+            // Remember the last connected ANT+ devices so Connect can restore them.
             antPlus.onDeviceConnected = { [weak store] deviceNumber, name, isHR, isPower in
                 guard let store else { return }
                 if isHR {
@@ -102,15 +80,6 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
                     store.lastANTPowerDeviceName = name
                 }
                 store.save()
-            }
-
-            // Auto-reconnect to last known LIFX lights
-            if store.connectOnLaunch && store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
-                lifx.aliasByID = store.aliasesByID
-                lifx.autoReconnectLights(
-                    savedEntries: store.savedLightEntries,
-                    savedSelectedIDs: store.savedSelectedLightIDs
-                )
             }
 
             // Listen for settings changes
@@ -133,37 +102,22 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
             charts.weightKg = newValue
         }
         .onChange(of: store.sensorInputSource) { _, newValue in
-            switchSensorSource(to: newValue)
+            // Stop the old source when switching; user must reconnect manually.
+            if newValue == "ble" {
+                antPlus.stop()
+            }
+            bindSensorSource()
         }
         .onDisappear {
             saveAll()
         }
     }
 
-    /// Bind the AutoColorController and Charts to the active sensor source
+    /// Bind the AutoColorController and Charts to the active sensor source.
     private func bindSensorSource() {
         let useANT = store.sensorInputSource == "ant+"
         auto.bind(lifx: lifx, bt: bt, antPlus: antPlus, useANTPlus: useANT)
         charts.bind(bt: bt, antPlus: antPlus, useANTPlus: useANT)
-    }
-
-    /// Handle switching between BLE and ANT+ at runtime
-    private func switchSensorSource(to source: String) {
-        if source == "ant+" {
-            antPlus.autoReconnect(
-                hrDeviceNumber: store.lastANTHRDeviceNumber,
-                powerDeviceNumber: store.lastANTPowerDeviceNumber
-            )
-        } else {
-            antPlus.stop()
-            if store.btAutoReconnect {
-                bt.autoReconnect(
-                    hrUUID: store.lastHRPeripheralID,
-                    powerUUID: store.lastPowerPeripheralID
-                )
-            }
-        }
-        bindSensorSource()
     }
 
     private func applyStore() {
@@ -182,6 +136,9 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
 
         lifx.aliasByID = store.aliasesByID
         charts.weightKg = store.weightKg
+        charts.ftp = store.ftp
+        charts.maxHR = auto.maxHR
+        charts.activeZones = store.activeZones
     }
 
     private func saveAll() {
@@ -205,4 +162,3 @@ Toggle("Auto-connect on launch", isOn: $store.connectOnLaunch)
         applyStore()
     }
 }
-

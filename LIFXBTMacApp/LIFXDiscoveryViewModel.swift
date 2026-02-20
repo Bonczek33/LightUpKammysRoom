@@ -12,11 +12,7 @@ import Network
 @MainActor
 final class LIFXDiscoveryViewModel: ObservableObject {
     @Published private(set) var lights: [LIFXLight] = []
-    @Published var status: String = "Idle"
-
-    var isActive: Bool {
-        status != "Idle"
-    }
+    @Published private(set) var status: String = "Idle"
 
     @Published var selectedIDs: Set<String> = []
 
@@ -358,4 +354,3 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     }
 
 }
-

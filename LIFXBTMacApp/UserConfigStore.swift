@@ -41,9 +41,6 @@ struct PersistedUserConfig: Codable {
     // Custom zone configuration
     var customZones: [PersistedZone]?
     
-    // App startup behavior
-    var connectOnLaunch: Bool?  // nil defaults to true (migration)
-
     // Sensor input source
     var sensorInputSource: String?  // "ble" or "ant+" — nil defaults to "ble"
     var antPlusAutoReconnect: Bool?  // nil defaults to true
@@ -122,10 +119,7 @@ final class UserConfigStore: ObservableObject {
     @Published var customZones: [PersistedZone]? = nil  // nil = use defaults
     @Published var sensorInputSource: String = "ble"   // "ble" or "ant+"
     @Published var antPlusAutoReconnect: Bool = true
-
-    /// If false, the app will NOT attempt to auto-connect BLE/ANT+/LIFX on launch.
-    @Published var connectOnLaunch: Bool = false
-@Published var lastANTHRDeviceNumber: UInt16? = nil
+    @Published var lastANTHRDeviceNumber: UInt16? = nil
     @Published var lastANTHRDeviceName: String? = nil
     @Published var lastANTPowerDeviceNumber: UInt16? = nil
     @Published var lastANTPowerDeviceName: String? = nil
@@ -196,7 +190,6 @@ final class UserConfigStore: ObservableObject {
             savedLightEntries: savedLightEntries,
             savedSelectedLightIDs: savedSelectedLightIDs,
             customZones: customZones,
-            connectOnLaunch: connectOnLaunch,
             sensorInputSource: sensorInputSource,
             antPlusAutoReconnect: antPlusAutoReconnect,
             lastANTHRDeviceNumber: lastANTHRDeviceNumber,
@@ -258,4 +251,3 @@ final class UserConfigStore: ObservableObject {
         save()
     }
 }
-

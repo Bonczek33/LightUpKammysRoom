@@ -7,86 +7,65 @@
 
 import SwiftUI
 
-// MARK: - Bluetooth Status Bar (compact — config is in Settings)
+// MARK: - Bluetooth Status Bar
 
 struct BluetoothStatusBar: View {
     @ObservedObject var bt: BluetoothSensorsViewModel
     @ObservedObject var store: UserConfigStore
 
     var body: some View {
-        HStack(spacing: 18) {
-            Label("Bluetooth", systemImage: "antenna.radiowaves.left.and.right")
-                .font(.headline)
-                .help("Bluetooth Low Energy sensor connections. Configure in Settings > Bluetooth.")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 18) {
+                Label("Bluetooth", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.headline)
+                    .help("Bluetooth Low Energy sensor connections. Configure in Settings > Bluetooth.")
 
-            Circle()
-                .fill(bt.btState == .poweredOn ? Color.green : Color.red)
-                .frame(width: 8, height: 8)
-                .help(bt.btState == .poweredOn ? "Bluetooth is active and ready." : "Bluetooth is not available. Check System Settings.")
+                Circle()
+                    .fill(bt.btState == .poweredOn ? Color.green : Color.red)
+                    .frame(width: 8, height: 8)
+                    .help(bt.btState == .poweredOn ? "Bluetooth is active and ready." : "Bluetooth is not available. Check System Settings.")
 
-            StatPill(title: "Heart Rate", value: bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
-                .help("Live heart rate from connected BLE heart rate monitor.")
-            StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
-                .help("Instantaneous power from connected BLE power meter / smart trainer.")
-            StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
-                .help("Pedaling cadence derived from crank revolution data.")
+                StatPill(title: "Heart Rate", value: bt.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                    .help("Live heart rate from connected BLE heart rate monitor.")
+                StatPill(title: "Power", value: bt.powerWatts.map { "\($0) W" } ?? "—")
+                    .help("Instantaneous power from connected BLE power meter / smart trainer.")
+                StatPill(title: "Cadence", value: bt.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                    .help("Pedaling cadence derived from crank revolution data.")
 
-            if bt.isRetryingHR || bt.isRetryingPower {
-                HStack(spacing: 4) {
-                    ProgressView().controlSize(.small)
-                    Text(retryLabel)
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                if bt.isRetryingHR || bt.isRetryingPower {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.small)
+                        Text(retryLabel)
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    .help("Automatically retrying connection with exponential backoff.")
                 }
-                .help("Automatically retrying connection with exponential backoff.")
-            }
 
-            Spacer()
+                Spacer()
 
-            Button(connectButtonTitle) {
-                toggleConnection()
-            }
-            .buttonStyle(.bordered)
-            .help(connectButtonHelp)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("HR: \(bt.connectedHRName ?? "—")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Power: \(bt.connectedPowerName ?? "—")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .help("Currently connected sensor names.")
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("HR: \(bt.connectedHRName ?? "—")")
+                Text(bt.status)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("Power: \(bt.connectedPowerName ?? "—")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 160, alignment: .trailing)
+                    .help("Current Bluetooth connection status.")
             }
-            .help("Currently connected sensor names. Connect new sensors in Settings > Bluetooth.")
 
-            Text(bt.status)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .frame(maxWidth: 160, alignment: .trailing)
-                .help("Current Bluetooth connection status.")
-        }
-    }
-
-    private var isConnected: Bool {
-        bt.connectedHRName != nil || bt.connectedPowerName != nil
-    }
-
-    private var connectButtonTitle: String { isConnected ? "Disconnect" : "Connect" }
-
-    private var connectButtonHelp: String {
-        isConnected ? "Disconnect from current BLE sensors." : "Connect to last known sensors (or scan if none are saved)."
-    }
-
-    private func toggleConnection() {
-        if isConnected {
-            bt.disconnectAll()
-        } else {
-            // Prefer last known devices if available; otherwise start scanning.
-            if (store.lastHRPeripheralID != nil || store.lastPowerPeripheralID != nil) {
-                bt.autoReconnect(hrUUID: store.lastHRPeripheralID, powerUUID: store.lastPowerPeripheralID)
-            } else {
-                bt.startScan()
+            // Connect / Disconnect row
+            HStack(spacing: 8) {
+                ConnectSensorsButton(bt: bt, store: store)
+                Spacer()
             }
         }
     }
@@ -99,6 +78,66 @@ struct BluetoothStatusBar: View {
     }
 }
 
+// MARK: - Connect Sensors Button (BLE)
+
+/// Displays a single "Connect" button that reconnects to last-known BLE sensors.
+/// Shows which devices will be targeted as a tooltip / subtitle.
+private struct ConnectSensorsButton: View {
+    @ObservedObject var bt: BluetoothSensorsViewModel
+    @ObservedObject var store: UserConfigStore
+
+    private var isConnected: Bool {
+        bt.connectedHRName != nil || bt.connectedPowerName != nil
+    }
+
+    private var isConnecting: Bool {
+        bt.isRetryingHR || bt.isRetryingPower
+    }
+
+    private var hasLastKnown: Bool {
+        store.lastHRPeripheralID != nil || store.lastPowerPeripheralID != nil
+    }
+
+    private var lastKnownSummary: String {
+        var parts: [String] = []
+        if let name = store.lastHRPeripheralName { parts.append("HR: \(name)") }
+        else if store.lastHRPeripheralID != nil { parts.append("HR: saved device") }
+        if let name = store.lastPowerPeripheralName { parts.append("Power: \(name)") }
+        else if store.lastPowerPeripheralID != nil { parts.append("Power: saved device") }
+        return parts.isEmpty ? "No saved sensors" : parts.joined(separator: "  ·  ")
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                bt.autoReconnect(
+                    hrUUID: store.lastHRPeripheralID,
+                    powerUUID: store.lastPowerPeripheralID
+                )
+            } label: {
+                Label(isConnecting ? "Connecting…" : "Connect Sensors", systemImage: "cable.connector")
+            }
+            .disabled(bt.btState != .poweredOn || isConnecting || isConnected || !hasLastKnown)
+            .help(hasLastKnown
+                  ? "Connect to last-used BLE sensors: \(lastKnownSummary)"
+                  : "No saved sensors. Connect via Settings > Bluetooth first.")
+
+            if isConnected || isConnecting {
+                Button {
+                    bt.disconnectAll()
+                } label: {
+                    Label("Disconnect", systemImage: "cable.connector.slash")
+                }
+                .help("Disconnect all BLE sensors.")
+            }
+
+            Text(lastKnownSummary)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
 // MARK: - ANT+ Status Bar
 
 struct ANTPlusStatusBar: View {
@@ -106,73 +145,56 @@ struct ANTPlusStatusBar: View {
     @ObservedObject var store: UserConfigStore
 
     var body: some View {
-        HStack(spacing: 18) {
-            Label("ANT+", systemImage: "cable.connector.horizontal")
-                .font(.headline)
-                .help("ANT+ USB dongle sensor connections. Configure in Settings > Bluetooth.")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 18) {
+                Label("ANT+", systemImage: "cable.connector.horizontal")
+                    .font(.headline)
+                    .help("ANT+ USB dongle sensor connections. Configure in Settings > Bluetooth.")
 
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-                .help(antPlus.state.rawValue)
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                    .help(antPlus.state.rawValue)
 
-            StatPill(title: "Heart Rate", value: antPlus.heartRateBPM.map { "\($0) bpm" } ?? "—")
-                .help("Live heart rate from ANT+ heart rate monitor.")
-            StatPill(title: "Power", value: antPlus.powerWatts.map { "\($0) W" } ?? "—")
-                .help("Instantaneous power from ANT+ power meter / smart trainer.")
-            StatPill(title: "Cadence", value: antPlus.cadenceRPM.map { "\($0) rpm" } ?? "—")
-                .help("Pedaling cadence from ANT+ power meter crank data.")
+                StatPill(title: "Heart Rate", value: antPlus.heartRateBPM.map { "\($0) bpm" } ?? "—")
+                    .help("Live heart rate from ANT+ heart rate monitor.")
+                StatPill(title: "Power", value: antPlus.powerWatts.map { "\($0) W" } ?? "—")
+                    .help("Instantaneous power from ANT+ power meter / smart trainer.")
+                StatPill(title: "Cadence", value: antPlus.cadenceRPM.map { "\($0) rpm" } ?? "—")
+                    .help("Pedaling cadence from ANT+ power meter crank data.")
 
-            if antPlus.state == .searching {
-                HStack(spacing: 4) {
-                    ProgressView().controlSize(.small)
-                    Text("Searching…")
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                if antPlus.state == .searching {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.small)
+                        Text("Searching…")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            Button(antButtonTitle) {
-                toggleANT()
-            }
-            .buttonStyle(.bordered)
-            .help(antButtonHelp)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("HR: \(antPlus.connectedHRName ?? "—")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Power: \(antPlus.connectedPowerName ?? "—")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("HR: \(antPlus.connectedHRName ?? "—")")
+                Text(antPlus.status)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("Power: \(antPlus.connectedPowerName ?? "—")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 200, alignment: .trailing)
             }
 
-            Text(antPlus.status)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .frame(maxWidth: 200, alignment: .trailing)
-        }
-    }
-
-    private var isConnected: Bool { antPlus.state == .connected }
-
-    private var antButtonTitle: String { isConnected ? "Disconnect" : "Connect" }
-
-    private var antButtonHelp: String {
-        isConnected ? "Stop ANT+ and close the dongle." : "Start ANT+ and search/connect using last known device numbers (or wildcard)."
-    }
-
-    private func toggleANT() {
-        if isConnected {
-            antPlus.stop()
-        } else {
-            antPlus.autoReconnect(
-                hrDeviceNumber: store.lastANTHRDeviceNumber,
-                powerDeviceNumber: store.lastANTPowerDeviceNumber
-            )
+            // Connect / Disconnect row
+            HStack(spacing: 8) {
+                ConnectANTPlusButton(antPlus: antPlus, store: store)
+                Spacer()
+            }
         }
     }
 
@@ -182,6 +204,59 @@ struct ANTPlusStatusBar: View {
         case .searching:    return .orange
         case .disconnected: return .red
         case .error:        return .red
+        }
+    }
+}
+
+// MARK: - Connect ANT+ Button
+
+private struct ConnectANTPlusButton: View {
+    @ObservedObject var antPlus: ANTPlusSensorViewModel
+    @ObservedObject var store: UserConfigStore
+
+    private var isConnected: Bool { antPlus.state == .connected }
+    private var isSearching: Bool { antPlus.state == .searching }
+
+    private var hasLastKnown: Bool {
+        store.lastANTHRDeviceNumber != nil || store.lastANTPowerDeviceNumber != nil
+    }
+
+    private var lastKnownSummary: String {
+        var parts: [String] = []
+        if let name = store.lastANTHRDeviceName { parts.append("HR: \(name)") }
+        else if let num = store.lastANTHRDeviceNumber { parts.append("HR: #\(num)") }
+        if let name = store.lastANTPowerDeviceName { parts.append("Power: \(name)") }
+        else if let num = store.lastANTPowerDeviceNumber { parts.append("Power: #\(num)") }
+        return parts.isEmpty ? "No saved sensors" : parts.joined(separator: "  ·  ")
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                antPlus.autoReconnect(
+                    hrDeviceNumber: store.lastANTHRDeviceNumber,
+                    powerDeviceNumber: store.lastANTPowerDeviceNumber
+                )
+            } label: {
+                Label(isSearching ? "Searching…" : "Connect Sensors", systemImage: "cable.connector")
+            }
+            .disabled(isSearching || isConnected || !hasLastKnown)
+            .help(hasLastKnown
+                  ? "Connect to last-used ANT+ sensors: \(lastKnownSummary)"
+                  : "No saved sensors. Connect via Settings > Bluetooth first.")
+
+            if isConnected || isSearching {
+                Button {
+                    antPlus.stop()
+                } label: {
+                    Label("Disconnect", systemImage: "cable.connector.slash")
+                }
+                .help("Stop ANT+ and disconnect all sensors.")
+            }
+
+            Text(lastKnownSummary)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }
@@ -228,21 +303,20 @@ struct AutoColorPanel: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .help("Estimated maximum heart rate (220 − age). Used to calculate HR training zones.")
-                    
+
                     Text("FTP \(auto.ftp)W")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .help("Functional Threshold Power. Used to calculate power training zones. Change in Settings > General.")
-                    
+                        .help("Functional Threshold Power. Change in Settings > General.")
+
                     Text("Weight \(String(format: "%.1f", auto.weightKg))kg")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .help("Body weight used for W/kg calculation in charts. Change in Settings > General.")
+                        .help("Body weight used for W/kg calculation. Change in Settings > General.")
                 }
 
                 Spacer()
 
-                // Current applied color + intensity indicator
                 AppliedColorIndicator(auto: auto)
 
                 Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
@@ -263,7 +337,7 @@ struct AutoColorPanel: View {
 
 struct AppliedColorIndicator: View {
     @ObservedObject var auto: AutoColorController
-    
+
     var body: some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 4)
@@ -274,7 +348,7 @@ struct AppliedColorIndicator: View {
                 )
                 .frame(width: 28, height: 16)
                 .shadow(color: colorForCurrentState(paletteIndex: auto.appliedPaletteIndex, intensityPercent: auto.appliedIntensityPercent).opacity(0.5), radius: 4)
-            
+
             if let intensity = auto.appliedIntensityPercent {
                 Text("\(Int(intensity.rounded()))%")
                     .font(.caption)
@@ -288,7 +362,7 @@ struct AppliedColorIndicator: View {
               ? "Current zone color and brightness being sent to selected lights."
               : "Shows the zone color being applied. No intensity modulation active.")
     }
-    
+
     private func colorForCurrentState(paletteIndex: Int?, intensityPercent: Double?) -> Color {
         guard let idx = paletteIndex else { return .gray.opacity(0.3) }
         let safeIdx = max(0, min(ZwiftZonePalette.colors.count - 1, idx))
@@ -384,7 +458,7 @@ struct ZoneLegendView: View {
     }
 }
 
-// MARK: - LIFX
+// MARK: - LIFX Panel
 
 struct LIFXPanel: View {
     @ObservedObject var vm: LIFXDiscoveryViewModel
@@ -393,8 +467,15 @@ struct LIFXPanel: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
-                Button(lifxButtonTitle) { toggleLIFX() }
+                // Connect to last-known lights button
+                ConnectLightsButton(vm: vm, store: store)
+
+                Divider().frame(height: 20)
+
+                // Manual scan for new lights
+                Button("Scan for New Lights") { vm.scan() }
                     .help("Broadcast a UDP discovery packet to find all LIFX lights on your local network.")
+
                 Text(vm.status).foregroundColor(.secondary)
                 Spacer()
                 Button("Select All") { vm.selectAll() }.disabled(vm.lights.isEmpty)
@@ -430,25 +511,52 @@ struct LIFXPanel: View {
             }
         }
     }
+}
 
+// MARK: - Connect Lights Button
 
-private var lifxIsActive: Bool { vm.isActive }
-private var lifxButtonTitle: String { lifxIsActive ? "Disconnect LIFX" : "Connect LIFX" }
+/// Reconnects to last-known LIFX lights (saved IPs / selection) without a full scan.
+private struct ConnectLightsButton: View {
+    @ObservedObject var vm: LIFXDiscoveryViewModel
+    @ObservedObject var store: UserConfigStore
 
-private func toggleLIFX() {
-    if lifxIsActive {
-        vm.stop()
-    } else {
-        if store.lifxAutoReconnect, !store.savedLightEntries.isEmpty {
-            vm.aliasByID = store.aliasesByID
-            vm.autoReconnectLights(
-                savedEntries: store.savedLightEntries,
-                savedSelectedIDs: store.savedSelectedLightIDs
-            )
-        } else {
-            vm.scan()
+    private var hasLastKnown: Bool { !store.savedLightEntries.isEmpty }
+
+    private var isConnecting: Bool {
+        vm.status.hasPrefix("Reconnecting") || vm.status.hasPrefix("Scanning")
+    }
+
+    private var lastKnownSummary: String {
+        guard !store.savedLightEntries.isEmpty else { return "No saved lights" }
+        let names = store.savedLightEntries.prefix(3).map { entry in
+            store.aliasesByID[entry.id] ?? entry.alias ?? entry.label
+        }
+        let suffix = store.savedLightEntries.count > 3 ? " +\(store.savedLightEntries.count - 3) more" : ""
+        return names.joined(separator: ", ") + suffix
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                vm.aliasByID = store.aliasesByID
+                vm.autoReconnectLights(
+                    savedEntries: store.savedLightEntries,
+                    savedSelectedIDs: store.savedSelectedLightIDs
+                )
+            } label: {
+                Label(isConnecting ? "Connecting…" : "Connect Lights", systemImage: "lightbulb")
+            }
+            .disabled(isConnecting || !hasLastKnown)
+            .help(hasLastKnown
+                  ? "Reconnect to last-used lights: \(lastKnownSummary)"
+                  : "No saved lights. Use 'Scan for New Lights' first.")
+
+            if !store.savedLightEntries.isEmpty {
+                Text(lastKnownSummary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 }
-}
-

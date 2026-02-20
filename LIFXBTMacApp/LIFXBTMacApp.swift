@@ -57,6 +57,7 @@ var body: some Scene {
         .windowResizability(.contentSize)
         .defaultSize(width: 1000, height: 600)
         .defaultPosition(.center)
+        .windowResizability(.contentSize)
         #else
         Settings {
             SettingsView()
@@ -275,9 +276,6 @@ struct GeneralSettingsTab: View {
                         
                         // Profile Settings
                         GroupBox(label: Text("Profile").font(.subheadline)) {
-                            
-                            Divider()
-                            
                             VStack(spacing: 12) {
                                 HStack {
                                     Text("Date of Birth:")
@@ -403,7 +401,6 @@ struct GeneralSettingsTab: View {
                         
                         // Intensity Modulation Settings (Power-based)
                         GroupBox(label: Text("Intensity Modulation (Power)").font(.subheadline)) {
-                            
                             VStack(alignment: .leading, spacing: 12) {
                                 Toggle("Modulate intensity with power", isOn: $modulateIntensityWithPower)
                                     .toggleStyle(.switch)
@@ -698,9 +695,6 @@ struct BluetoothSettingsTab: View {
                             Text("Bluetooth Low Energy (BLE)").tag("ble")
                             Text("ANT+ (USB dongle)").tag("ant+")
                         }
-                        
-                        Divider()
-                        
                         .pickerStyle(.radioGroup)
                         .onChange(of: sensorSource) { _, newValue in
                             saveSensorSource(newValue)
@@ -738,9 +732,7 @@ struct BluetoothSettingsTab: View {
                                 saveANTPlusAutoReconnect(newValue)
                             }
                             .help("When enabled, the app will automatically connect to the ANT+ USB dongle and search for saved sensors when the app starts.")
-                        
-                        Divider()
-                        
+
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {
                                 Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
@@ -924,10 +916,7 @@ struct BluetoothSettingsTab: View {
                             .onChange(of: autoReconnect) { _, newValue in
                                 saveBTAutoReconnect(newValue)
                             }
-                            .help("When enabled, the app will automatically connect to the BLT and search for saved sensors when the app starts.")
-                        
-                        Divider()
-                        
+
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 6) {
                                 Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
@@ -1184,7 +1173,7 @@ struct LightsSettingsTab: View {
             }
             return "Identifying lights…"
         }
-        return "" //"!Blinks each light for 5 seconds one at a time to help identify them."
+        return "Blinks each light for 5 seconds one at a time to help identify them."
     }
 
     private func loadLightsSettings() {
@@ -1278,10 +1267,7 @@ struct LightsSettingsTab: View {
                         .onChange(of: autoReconnect) { _, newValue in
                             saveLIFXAutoReconnect(newValue)
                         }
-                        .help("When enabled, the app will automatically connect to the LAN and search for saved lights when the app starts.")
-                    
-                    Divider()
-                    
+
                     if savedLightDisplayNames.isEmpty {
                         HStack(spacing: 6) {
                             Image(systemName: "lightbulb.slash")
@@ -1335,20 +1321,15 @@ struct LightsSettingsTab: View {
             Divider()
 
             // Identify lights
-            GroupBox(label: Text("Identify Lights").font(.subheadline)) {
-               
-                Divider()
-                                
+            GroupBox(label: Text("Identify").font(.subheadline)) {
                 HStack(spacing: 12) {
-                    
                     Button(action: {
                         if lifx.isIdentifying {
                             lifx.stopIdentify()
                         } else {
                             lifx.identifyLights()
                         }
-                    })
-                    {
+                    }) {
                         HStack(spacing: 6) {
                             if lifx.isIdentifying {
                                 ProgressView()
@@ -1360,7 +1341,6 @@ struct LightsSettingsTab: View {
                             }
                         }
                     }
-                
                     .disabled(lifx.lights.isEmpty)
                     .controlSize(.small)
 
@@ -1368,21 +1348,9 @@ struct LightsSettingsTab: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
                 .padding(8)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Blinks each light for 5 seconds one at a time to help identify them.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-               
-                
             }
 
-                Divider()
-                
             LIFXPanel(vm: lifx, store: store)
                 .frame(minHeight: 420)
 
