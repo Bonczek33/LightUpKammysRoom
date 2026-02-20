@@ -1,5 +1,5 @@
 //
-//  Settings+General.swift
+//  SettingsTabs_GeneralSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  General Settings tab — HR and power intensity modulation, power smoothing,
@@ -96,8 +96,8 @@ struct GeneralSettingsTab: View {
                                     .help("Adjusts light brightness based on HR position within the current training zone.")
                                 Text("When enabled, brightness changes based on heart rate position within the zone.")
                                     .font(.caption).foregroundColor(.secondary)
+                                Divider()
                                 if modulateIntensityWithHR {
-                                    Divider()
                                     intensitySliders(min: $minIntensityPercent,
                                                      max: $maxIntensityPercent,
                                                      label: "heart rate")
@@ -112,17 +112,17 @@ struct GeneralSettingsTab: View {
                                 Toggle("Modulate intensity with power",
                                        isOn: $modulateIntensityWithPower)
                                     .toggleStyle(.switch)
+                                
                                     .help("Adjusts light brightness based on power position within the current training zone.")
                                 Text("When enabled, brightness changes based on power position within the zone.")
                                     .font(.caption).foregroundColor(.secondary)
+                                Divider()
                                 if modulateIntensityWithPower {
-                                    Divider()
                                     intensitySliders(min: $minPowerIntensityPercent,
                                                      max: $maxPowerIntensityPercent,
                                                      label: "power")
                                 }
                                 if modulateIntensityWithHR && modulateIntensityWithPower {
-                                    Divider()
                                     HStack(spacing: 6) {
                                         Image(systemName: "info.circle").foregroundColor(.blue)
                                         Text("Both modulations enabled. HR takes priority with Power source; Power takes priority with HR source.")
@@ -147,8 +147,8 @@ struct GeneralSettingsTab: View {
                                     .help("Reduces light flickering from power spikes.")
                                 Text("Raw power values are always shown in the UI; smoothing only affects zone and brightness calculations.")
                                     .font(.caption).foregroundColor(.secondary)
+                                Divider()
                                 if powerMovingAverageSeconds > 0 {
-                                    Divider()
                                     HStack {
                                         Text("Smoothing Window:")
                                             .frame(width: 120, alignment: .trailing)

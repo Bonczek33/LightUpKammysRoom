@@ -1,5 +1,5 @@
 //
-//  Settings+Sensors.swift
+//  SettingsTabs_SensorsSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Sensors Settings tab — input source selector (BLE vs ANT+), device
@@ -113,9 +113,11 @@ struct BluetoothSettingsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Sensor Input").font(.headline)
-
+                Divider()
+                
                 // Source selector
                 GroupBox(label: Text("Input Source").font(.subheadline)) {
+                    Divider()
                     VStack(alignment: .leading, spacing: 10) {
                         Picker("Sensor source:", selection: $sensorSource) {
                             Text("Bluetooth Low Energy (BLE)").tag("ble")
@@ -179,7 +181,7 @@ struct BluetoothSettingsTab: View {
                     .toggleStyle(.switch)
                     .onChange(of: antPlusAutoReconnect) { _, v in saveANTPlusAutoReconnect(v) }
                     .help("Connects to the ANT+ dongle and searches for saved sensors on launch.")
-
+                Divider()
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
@@ -306,7 +308,7 @@ struct BluetoothSettingsTab: View {
                        isOn: $autoReconnect)
                     .toggleStyle(.switch)
                     .onChange(of: autoReconnect) { _, v in saveBTAutoReconnect(v) }
-
+                Divider()
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)

@@ -1,5 +1,5 @@
 //
-//  AboutSettingsTab.swift
+//  SettingsTabs_AboutSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Created by Tomasz Bak on 2/20/26.

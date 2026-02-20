@@ -1,5 +1,5 @@
 //
-//  LightsSettingsTab.swift
+//  SettingsTabs_LightsSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Created by Tomasz Bak on 2/20/26.
@@ -119,7 +119,7 @@ struct LightsSettingsTab: View {
                                isOn: $autoReconnect)
                             .toggleStyle(.switch)
                             .onChange(of: autoReconnect) { _, v in saveLIFXAutoReconnect(v) }
-
+                        Divider()
                         if savedLightDisplayNames.isEmpty {
                             HStack(spacing: 6) {
                                 Image(systemName: "lightbulb.slash").foregroundColor(.secondary).font(.caption)
@@ -157,6 +157,7 @@ struct LightsSettingsTab: View {
 
                 // Identify
                 GroupBox(label: Text("Identify").font(.subheadline)) {
+                    Divider()
                     HStack(spacing: 12) {
                         Button {
                             lifx.isIdentifying ? lifx.stopIdentify() : lifx.identifyLights()
@@ -179,6 +180,9 @@ struct LightsSettingsTab: View {
                 }
 
                 // Full light management panel
+                
+                Divider()
+                
                 LIFXPanel(vm: lifx, store: store)
                     .frame(minHeight: 420)
 

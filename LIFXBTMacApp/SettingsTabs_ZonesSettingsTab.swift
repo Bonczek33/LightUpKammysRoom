@@ -1,5 +1,5 @@
 //
-//  ZonesSettingsTab.swift
+//  SettingsTabs_ZonesSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Created by Tomasz Bak on 2/20/26.
@@ -49,10 +49,10 @@ struct ZonesSettingsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Zone Configuration").font(.headline)
-
+                Divider()
                 Text("Configure the 6 training zones used for light color control. Thresholds are percentages of maxHR (heart rate source) or FTP (power source).")
                     .font(.caption).foregroundColor(.secondary)
-
+              
                 // Custom toggle
                 HStack {
                     Toggle("Use custom zone thresholds", isOn: $isCustom)
@@ -173,7 +173,7 @@ struct ZonesSettingsTab: View {
                     }
                     .padding(.vertical, 8)
                 }
-
+                Divider()
                 // Computed ranges preview
                 GroupBox(label: Text("Computed Ranges").font(.subheadline)) {
                     let maxHR = 220 - (Calendar.current.dateComponents([.year], from: store.dateOfBirth, to: Date()).year ?? 0)

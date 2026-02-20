@@ -1,5 +1,5 @@
 //
-//  UserProfile.swift
+//  SettingsTabs_UserProfileTab.swift.swift
 //  LIFXBTMacApp
 //
 //  Created by Tomasz Bak on 2/20/26.

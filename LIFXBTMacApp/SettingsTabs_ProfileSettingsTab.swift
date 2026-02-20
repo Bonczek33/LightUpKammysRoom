@@ -1,5 +1,5 @@
 //
-//  Settings+Profile.swift
+//  SettingsTabs_ProfileSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Profile Settings tab — create, edit, select, and delete rider profiles.
