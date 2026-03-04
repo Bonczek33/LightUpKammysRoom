@@ -207,7 +207,19 @@ final class ChartsViewModel: ObservableObject {
 
     // MARK: - Zone histograms
 
-    /// HR zone histogram: counts samples per zone using %maxHR thresholds.
+    // MARK: - Convenience instance wrappers (FIX 7)
+    // The static histogram methods require callers to pass maxHR/ftp/zones manually,
+    // which is error-prone. These instance wrappers capture the current values.
+
+    func hrZoneHistogram(from points: [DataPoint]) -> [ZoneBucket] {
+        ChartsViewModel.hrZoneHistogram(from: points, zones: activeZones, maxHR: maxHR)
+    }
+
+    func powerZoneHistogram(from points: [DataPoint]) -> [ZoneBucket] {
+        ChartsViewModel.powerZoneHistogram(from: points, zones: activeZones, ftp: ftp)
+    }
+
+        /// HR zone histogram: counts samples per zone using %maxHR thresholds.
     static func hrZoneHistogram(from points: [DataPoint], zones: [Zone], maxHR: Int) -> [ZoneBucket] {
         guard !points.isEmpty, maxHR > 0 else { return [] }
         var counts = [Int: Int]()
@@ -275,3 +287,4 @@ final class ChartsViewModel: ObservableObject {
         equalBucketHistogram(from: points, range: range, bucketCount: bucketCount)
     }
 }
+

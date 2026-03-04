@@ -70,6 +70,9 @@ struct LightRow: View {
                 // Power on/off indicator
                 PowerIndicator(isPoweredOn: isPoweredOn)
 
+                // Device type indicator — always shown, mirrors power indicator style
+                DeviceTypeIndicator(deviceType: light.deviceType)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displayName)
                         .font(.headline)
@@ -79,6 +82,10 @@ struct LightRow: View {
                             .help("IP address on your local network. May change if DHCP assigns a new address.")
                         Text(light.id).font(.caption2).foregroundColor(.secondary)
                             .help("Hardware serial number (MAC-based). This never changes.")
+                        if let pid = light.productID {
+                            Text("PID \(pid)").font(.caption2).foregroundColor(.secondary)
+                                .help("LIFX product ID from StateVersion. Used to detect device type.")
+                        }
                     }
 
                     HStack(spacing: 10) {
@@ -123,7 +130,53 @@ struct LightRow: View {
             }
         }
     }
+}
 
+// MARK: - Device Type Indicator
+
+/// Shows the device form factor (Bulb / Lightstrip / Neon) using the same
+/// pill style as PowerIndicator: SF symbol + short label, coloured bg tint.
+struct DeviceTypeIndicator: View {
+    let deviceType: LIFXDeviceType
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: iconName)
+                .font(.caption)
+                .foregroundColor(indicatorColor)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(indicatorColor)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(indicatorColor.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .help(tooltip)
+    }
+
+    private var iconName: String {
+        deviceType.symbolName
+    }
+
+    private var label: String {
+        deviceType.displayName
+    }
+
+    private var indicatorColor: Color {
+        deviceType.badgeColor
+    }
+
+    private var tooltip: String {
+        switch deviceType {
+        case .bulb:
+            return "Single-zone bulb. Colour is set with SetColor (type 102)."
+        case .lightstrip:
+            return "LIFX Lightstrip — multizone. All zones set with SetExtendedColorZones (type 510)."
+        case .neon:
+            return "LIFX Neon — multizone flexible tube. All zones set with SetExtendedColorZones (type 510)."
+        }
+    }
 }
 
 struct LEDDot: View {

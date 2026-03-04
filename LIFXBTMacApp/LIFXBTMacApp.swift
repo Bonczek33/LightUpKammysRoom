@@ -65,7 +65,7 @@ struct LIFXBTMacApp: App {
         .defaultSize(width: 1000, height: 1000)
         .defaultPosition(.center)
 
-        #if swift(>=5.9)
+        // FIX 9: Removed dead #else branch — the whole codebase requires Swift 5.9+.
         Settings {
             SettingsView()
                 .frame(width: 1100, height: 650, alignment: .center)
@@ -80,13 +80,6 @@ struct LIFXBTMacApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 1100, height: 650)
         .defaultPosition(.center)
-        #else
-        Settings {
-            SettingsView()
-                .environmentObject(bt)
-                .environmentObject(profiles)
-        }
-        #endif
     }
 }
 

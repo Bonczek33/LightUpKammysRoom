@@ -12,6 +12,14 @@ struct ChartsPanel: View {
     @ObservedObject var charts: ChartsViewModel
     @State private var selectedChart: ChartType = .heartRate
 
+
+    enum DistributionMode: String, CaseIterable, Identifiable {
+        case time = "Time"
+        case percent = "%"
+        var id: String { rawValue }
+    }
+
+    @State private var distributionMode: DistributionMode = .time
     enum ChartType: String, CaseIterable, Identifiable {
         case heartRate   = "Heart Rate"
         case power       = "Power"
@@ -104,6 +112,14 @@ struct ChartsPanel: View {
                                 .foregroundColor(.secondary)
                                 .help("Time spent at each intensity level.")
                             Spacer()
+                            Picker("", selection: $distributionMode) {
+                                ForEach(DistributionMode.allCases) { mode in
+                                    Text(mode.rawValue).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 140)
+                            .help("Show distribution as seconds (sample count) or percent of total samples.")
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -258,7 +274,7 @@ struct ChartsPanel: View {
             if buckets.isEmpty {
                 histogramEmpty()
             } else {
-                ZoneHistogramChart(buckets: buckets)
+                ZoneHistogramChart(buckets: buckets, mode: distributionMode)
             }
 
         case .power:
@@ -270,7 +286,7 @@ struct ChartsPanel: View {
             if buckets.isEmpty {
                 histogramEmpty()
             } else {
-                ZoneHistogramChart(buckets: buckets)
+                ZoneHistogramChart(buckets: buckets, mode: distributionMode)
             }
 
         case .cadence:
@@ -282,7 +298,7 @@ struct ChartsPanel: View {
             if buckets.isEmpty {
                 histogramEmpty()
             } else {
-                EqualHistogramChart(buckets: buckets, color: .blue, formatLabel: { "\(Int($0))" })
+                EqualHistogramChart(buckets: buckets, color: .blue, mode: distributionMode, formatLabel: { "\(Int($0))" })
             }
 
         case .powerToWeight:
@@ -294,7 +310,7 @@ struct ChartsPanel: View {
             if buckets.isEmpty {
                 histogramEmpty()
             } else {
-                EqualHistogramChart(buckets: buckets, color: .purple, formatLabel: { String(format: "%.1f", $0) })
+                EqualHistogramChart(buckets: buckets, color: .purple, mode: distributionMode, formatLabel: { String(format: "%.1f", $0) })
             }
         }
     }
@@ -343,35 +359,70 @@ struct ChartsPanel: View {
 /// Renders one bar per training zone, colored by the zone's palette color.
 private struct ZoneHistogramChart: View {
     let buckets: [ChartsViewModel.ZoneBucket]
+    let mode: ChartsPanel.DistributionMode
 
     var body: some View {
-        let maxCount = buckets.map(\.count).max() ?? 1
-        GeometryReader { geo in
-            HStack(alignment: .bottom, spacing: 3) {
-                ForEach(buckets) { bucket in
-                    VStack(spacing: 2) {
-                        if bucket.count > 0 {
-                            Text("\(bucket.count)")
-                                .font(.system(size: 8))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        } else {
-                            Spacer().frame(height: 12)
-                        }
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(bucket.color.opacity(0.85))
-                            .frame(height: maxCount > 0
-                                   ? max(2, CGFloat(bucket.count) / CGFloat(maxCount) * (geo.size.height - 30))
-                                   : 2)
-                        Text(bucket.label)
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+        let total = buckets.reduce(0) { $0 + $1.count }
+
+        Chart {
+            ForEach(buckets) { bucket in
+                let yValue: Double = {
+                    switch mode {
+                    case .time:
+                        return Double(bucket.count)
+                    case .percent:
+                        guard total > 0 else { return 0 }
+                        return Double(bucket.count) / Double(total) * 100.0
                     }
-                    .frame(maxWidth: .infinity)
+                }()
+
+                BarMark(
+                    x: .value("Zone", bucket.label),
+                    y: .value(mode == .time ? "Seconds" : "Percent", yValue)
+                )
+                .foregroundStyle(bucket.color.opacity(0.85))
+                .annotation(position: .top, alignment: .center) {
+                    Text(labelText(count: bucket.count, total: total))
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .monospacedDigit()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic) { _ in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel()
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        switch mode {
+                        case .time:
+                            Text("\(Int(v))").font(.caption)
+                        case .percent:
+                            Text(String(format: "%.0f%%", v)).font(.caption)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func labelText(count: Int, total: Int) -> String {
+        switch mode {
+        case .time:
+            return "\(count)s"
+        case .percent:
+            guard total > 0 else { return "0%" }
+            let pct = Double(count) / Double(total) * 100.0
+            return String(format: "%.1f%%", pct)
         }
     }
 }
@@ -381,35 +432,79 @@ private struct ZoneHistogramChart: View {
 private struct EqualHistogramChart: View {
     let buckets: [ChartsViewModel.HistogramBucket]
     let color: Color
+    let mode: ChartsPanel.DistributionMode
     let formatLabel: (Double) -> String
 
     var body: some View {
-        let maxCount = buckets.map(\.count).max() ?? 1
-        GeometryReader { geo in
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(buckets) { bucket in
-                    VStack(spacing: 2) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(LinearGradient(
-                                colors: [color.opacity(0.75), color.opacity(0.35)],
-                                startPoint: .top, endPoint: .bottom))
-                            .frame(height: maxCount > 0
-                                   ? max(2, CGFloat(bucket.count) / CGFloat(maxCount) * (geo.size.height - 18))
-                                   : 2)
-                        Text(formatLabel(bucket.midpoint))
-                            .font(.system(size: 8))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
+        let total = buckets.reduce(0) { $0 + $1.count }
+
+        Chart {
+            ForEach(buckets) { bucket in
+                let xLabel = "\(formatLabel(bucket.rangeLow))–\(formatLabel(bucket.rangeHigh))"
+
+                let yValue: Double = {
+                    switch mode {
+                    case .time:
+                        return Double(bucket.count)
+                    case .percent:
+                        guard total > 0 else { return 0 }
+                        return Double(bucket.count) / Double(total) * 100.0
                     }
-                    .frame(maxWidth: .infinity)
+                }()
+
+                BarMark(
+                    x: .value("Range", xLabel),
+                    y: .value(mode == .time ? "Seconds" : "Percent", yValue)
+                )
+                .foregroundStyle(color.opacity(0.75))
+                .annotation(position: .top, alignment: .center) {
+                    Text(labelText(count: bucket.count, total: total))
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .monospacedDigit()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic) { _ in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel()
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic) { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let v = value.as(Double.self) {
+                        switch mode {
+                        case .time:
+                            Text("\(Int(v))").font(.caption)
+                        case .percent:
+                            Text(String(format: "%.0f%%", v)).font(.caption)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func labelText(count: Int, total: Int) -> String {
+        switch mode {
+        case .time:
+            return "\(count)s"
+        case .percent:
+            guard total > 0 else { return "0%" }
+            let pct = Double(count) / Double(total) * 100.0
+            return String(format: "%.1f%%", pct)
         }
     }
 }
 
 // MARK: - Chart view modifiers
+
 
 private extension View {
     func timeSeriesXAxis() -> some View {
@@ -446,3 +541,4 @@ private extension View {
         }
     }
 }
+

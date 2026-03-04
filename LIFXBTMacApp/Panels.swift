@@ -44,22 +44,22 @@ struct BluetoothStatusBar: View {
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("HR: \(bt.connectedHRName ?? "—")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Power: \(bt.connectedPowerName ?? "—")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .help("Currently connected sensor names.")
+//                VStack(alignment: .trailing, spacing: 2) {
+//                    Text("HRxxxx: \(bt.connectedHRName ?? "—")")
+//                        .font(.caption)
+//                        .foregroundColor(.secondary)
+//                    Text("Powerxxxx: \(bt.connectedPowerName ?? "—")")
+//                        .font(.caption)
+//                        .foregroundColor(.secondary)
+//                }
+//                .help("Currently connected sensor names.")
 
-                Text(bt.status)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 160, alignment: .trailing)
-                    .help("Current Bluetooth connection status.")
+//                Text(bt.status)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//                    .lineLimit(1)
+//                    .frame(maxWidth: 160, alignment: .trailing)
+//                    .help("Current Bluetooth connection status.")
             }
 
             // Connect / Disconnect row
@@ -108,30 +108,45 @@ private struct ConnectSensorsButton: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button {
-                bt.autoReconnect(
-                    hrUUID: store.lastHRPeripheralID,
-                    powerUUID: store.lastPowerPeripheralID
-                )
-            } label: {
-                Label(isConnecting ? "Connecting…" : "Connect Sensors", systemImage: "cable.connector")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    bt.autoReconnect(
+                        hrUUID: store.lastHRPeripheralID,
+                        powerUUID: store.lastPowerPeripheralID
+                    )
+                } label: {
+                    Label(isConnecting ? "Connecting…" : "Connect Sensors", systemImage: "cable.connector")
+                }
+                .disabled(bt.btState != .poweredOn || isConnecting || isConnected || !hasLastKnown)
+                .help(hasLastKnown
+                      ? "Connect to last-used BLE sensors: \(lastKnownSummary)"
+                      : "No saved sensors. Connect via Settings > Bluetooth first.")
+                
+                Button {
+                    bt.disconnectAll()
+                } label: {
+                    Label("Disconnect", systemImage: "cable.connector.slash")
+                }
+                .help("Disconnect all BLE sensors.")
+                
+//                Text(lastKnownSummary)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
             }
-            .disabled(bt.btState != .poweredOn || isConnecting || isConnected || !hasLastKnown)
-            .help(hasLastKnown
-                  ? "Connect to last-used BLE sensors: \(lastKnownSummary)"
-                  : "No saved sensors. Connect via Settings > Bluetooth first.")
-
-            Button {
-                bt.disconnectAll()
-            } label: {
-                Label("Disconnect", systemImage: "cable.connector.slash")
+            VStack(alignment: .leading, spacing: 0){
+                Text(lastKnownSummary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .help("Last used BLE sensor details.")
+                
+                Text(bt.status)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    //.frame(maxWidth: 160, alignment: .trailing)
+                    .help("Current Bluetooth connection status.")
             }
-            .help("Disconnect all BLE sensors.")
-
-            Text(lastKnownSummary)
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
 }
@@ -172,20 +187,20 @@ struct ANTPlusStatusBar: View {
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("HR: \(antPlus.connectedHRName ?? "—")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Power: \(antPlus.connectedPowerName ?? "—")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+//                VStack(alignment: .trailing, spacing: 2) {
+//                    Text("HR: \(antPlus.connectedHRName ?? "—")")
+//                        .font(.caption)
+//                        .foregroundColor(.secondary)
+//                    Text("Power: \(antPlus.connectedPowerName ?? "—")")
+//                        .font(.caption)
+//                        .foregroundColor(.secondary)
+//                }
 
-                Text(antPlus.status)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 200, alignment: .trailing)
+//                Text(antPlus.status)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//                    .lineLimit(1)
+//                    .frame(maxWidth: 200, alignment: .trailing)
             }
 
             // Connect / Disconnect row
@@ -229,33 +244,53 @@ private struct ConnectANTPlusButton: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Button {
-                antPlus.autoReconnect(
-                    hrDeviceNumber: store.lastANTHRDeviceNumber,
-                    powerDeviceNumber: store.lastANTPowerDeviceNumber
-                )
-            } label: {
-                Label(isSearching ? "Searching…" : "Connect Sensors", systemImage: "cable.connector")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    antPlus.autoReconnect(
+                        hrDeviceNumber: store.lastANTHRDeviceNumber,
+                        powerDeviceNumber: store.lastANTPowerDeviceNumber
+                    )
+                } label: {
+                    Label(isSearching ? "Searching…" : "Connect Sensors", systemImage: "cable.connector")
+                }
+                .disabled(isSearching || isConnected || !hasLastKnown)
+                .help(hasLastKnown
+                      ? "Connect to last-used ANT+ sensors: \(lastKnownSummary)"
+                      : "No saved sensors. Connect via Settings > Bluetooth first.")
+                
+                Button {
+                    antPlus.stop()
+                } label: {
+                    Label("Disconnect", systemImage: "cable.connector.slash")
+                }
+                .help("Stop ANT+ and disconnect all sensors.")
+                
+//                Text(lastKnownSummary)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
             }
-            .disabled(isSearching || isConnected || !hasLastKnown)
-            .help(hasLastKnown
-                  ? "Connect to last-used ANT+ sensors: \(lastKnownSummary)"
-                  : "No saved sensors. Connect via Settings > Bluetooth first.")
-
-            Button {
-                antPlus.stop()
-            } label: {
-                Label("Disconnect", systemImage: "cable.connector.slash")
+            
+            VStack(alignment: .leading, spacing: 0){
+                Text(lastKnownSummary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .help("Last used ANT+ sensor details.")
+                
+                Text(antPlus.status)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                   // .frame(maxWidth: 200, alignment: .trailing)
+                    .help("Current ANT+ connection status.")
+        
             }
-            .help("Stop ANT+ and disconnect all sensors.")
-
-            Text(lastKnownSummary)
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
 }
+
+
+
 
 // MARK: - Auto Color
 
@@ -263,6 +298,8 @@ struct AutoColorPanel: View {
     @ObservedObject var auto: AutoColorController
     @ObservedObject var store: UserConfigStore
     let formatter: NumberFormatter
+
+    @State private var showingZoneInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -279,13 +316,13 @@ struct AutoColorPanel: View {
                 .frame(width: 560)
                 .help("Off = manual control. Heart Rate = zones based on %maxHR. Power = zones based on %FTP.")
 
-                Spacer()
-
-                Text(auto.lastInputText)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 8)
-                    .help("Current sensor reading and the reference value used for zone calculation.")
+//                Spacer()
+//
+//                Text(auto.lastInputText)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//                    .padding(.leading, 8)
+//                    .help("Current sensor reading and the reference value used for zone calculation.")
             }
 
             HStack(spacing: 18) {
@@ -311,17 +348,61 @@ struct AutoColorPanel: View {
                         .help("Body weight used for W/kg calculation. Change in Settings > General.")
                 }
 
-                Spacer()
-
-                AppliedColorIndicator(auto: auto)
-
-                Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .help("Current training zone (1–6). Zone color is applied to all selected LIFX lights.")
+//                Spacer()
+//
+//                AppliedColorIndicator(auto: auto)
+//
+//                Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//                    .help("Current training zone (1–6). Zone color is applied to all selected LIFX lights.")
             }
 
-            ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp, zones: store.activeZones)
+            // Compact colour swatches + "Zone Info" popover button
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    ForEach(store.activeZones) { z in
+                        let c = ZwiftZonePalette.colors[z.paletteIndex].preview
+                        Circle()
+                            .fill(c)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(Color.secondary.opacity(0.35), lineWidth: 0.5))
+                            .help(z.name)
+                    }
+                }
+
+                Button {
+                    showingZoneInfo.toggle()
+                } label: {
+                    Label("Zone Info", systemImage: "info.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("Show training zone ranges, HR targets, and power targets for your current settings.")
+                .popover(isPresented: $showingZoneInfo, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text("Zone Info").font(.headline)
+                            Spacer()
+                            Button {
+                                showingZoneInfo = false
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .padding([.horizontal, .top], 16)
+                        .padding(.bottom, 8)
+
+                        Divider()
+
+                        ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp, zones: store.activeZones)
+                            .padding(16)
+                    }
+                    .frame(minWidth: 540)
+                }
+            }
         }
         .onChange(of: auto.source) { _, newValue in
             store.autoSourceRaw = newValue.rawValue
@@ -486,20 +567,26 @@ struct LIFXStatusBar: View {
                     }
                 }
 
-                Spacer()
+             //   Spacer()
 
-                Text(vm.status)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 200, alignment: .trailing)
-                    .help("Current LIFX discovery / connection status.")
+//                Text(vm.status)
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//                    .lineLimit(1)
+//                    .frame(maxWidth: 200, alignment: .trailing)
+//                    .help("Current LIFX discovery / connection status.")
             }
 
             HStack(spacing: 8) {
                 ConnectLightsButton(vm: vm, store: store)
                 Spacer()
             }
+            Text(vm.status)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                //.frame(maxWidth: 200, alignment: .trailing)
+                .help("Current LIFX discovery / connection status.")
         }
     }
 

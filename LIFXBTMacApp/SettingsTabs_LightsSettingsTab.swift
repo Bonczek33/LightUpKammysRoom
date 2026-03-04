@@ -2,20 +2,9 @@
 //  SettingsTabs_LightsSettingsTab.swift
 //  LIFXBTMacApp
 //
-//  Created by Tomasz Bak on 2/20/26.
-//
-
-
-//
-//  Settings+Lights.swift
-//  LIFXBTMacApp
-//
-//  Lights Settings tab — save/forget LIFX light sets for auto-reconnect,
-//  identify lights by blinking them, and the full light management panel
-//  (scan, select, power on/off, alias editor).
-//
-//  Owned config fields:
-//    lifxAutoReconnect, savedLightEntries, savedSelectedLightIDs
+//  FIX 6: Replaced @AppStorage + manual JSON decode/encode with direct
+//  @EnvironmentObject UserConfigStore access.
+//  FIX 10: Removed store.load() from onAppear to avoid clobbering in-flight state.
 //
 
 import SwiftUI
@@ -25,7 +14,6 @@ import SwiftUI
 struct LightsSettingsTab: View {
     @EnvironmentObject var lifx:  LIFXDiscoveryViewModel
     @EnvironmentObject var store: UserConfigStore
-    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
 
     @State private var autoReconnect:          Bool     = true
     @State private var savedLightDisplayNames: [String] = []
@@ -41,19 +29,16 @@ struct LightsSettingsTab: View {
             let light = lifx.lights.first(where: { $0.id == lightID }) ?? placeholder
             return "Identifying \(index + 1)/\(lifx.lights.count): \(lifx.displayName(for: light))"
         }
-        return "Identifying lights…"
+        return "Identifying lights..."
     }
 
-    // MARK: Persistence
+    // MARK: Persistence (FIX 6: direct store access, no JSON encode/decode)
 
     private func loadLightsSettings() {
-        guard let data = configData,
-              let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        autoReconnect = decoded.lifxAutoReconnect ?? true
-        updateSavedLightsDisplay(entries: decoded.savedLightEntries ?? [])
+        autoReconnect = store.lifxAutoReconnect
+        updateSavedLightsDisplay(entries: store.savedLightEntries)
     }
 
-    /// Build display strings showing "name  (ID)" for each saved light.
     private func updateSavedLightsDisplay(entries: [SavedLightEntry]) {
         savedLightDisplayNames = entries.map { entry in
             let name: String
@@ -65,44 +50,39 @@ struct LightsSettingsTab: View {
     }
 
     private func saveLIFXAutoReconnect(_ value: Bool) {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        decoded.lifxAutoReconnect = value
-        if let encoded = try? JSONEncoder().encode(decoded) { configData = encoded }
+        store.lifxAutoReconnect = value
+        store.save()
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveCurrentLights() {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-
         let selectedLights = lifx.lights.filter { lifx.selectedIDs.contains($0.id) }
         guard !selectedLights.isEmpty else { return }
-
-        decoded.savedLightEntries = selectedLights.map { light in
+        store.savedLightEntries = selectedLights.map { light in
             let alias = lifx.aliasByID[light.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cap   = lifx.deviceTypeByID[light.id] ?? light.deviceType
+            let zones = lifx.zoneCountByID[light.id]  ?? light.zoneCount
             return SavedLightEntry(
                 id: light.id, ip: light.ip, label: light.label,
-                alias: (alias?.isEmpty == false) ? alias : nil
+                alias: (alias?.isEmpty == false) ? alias : nil,
+                deviceType: cap == .bulb ? nil : cap,
+                zoneCount: zones > 0 ? zones : nil
             )
         }
-        decoded.savedSelectedLightIDs = selectedLights.map(\.id)
-
-        if let encoded = try? JSONEncoder().encode(decoded) { configData = encoded }
-        updateSavedLightsDisplay(entries: decoded.savedLightEntries ?? [])
+        store.savedSelectedLightIDs = selectedLights.map(\.id)
+        store.save()
+        updateSavedLightsDisplay(entries: store.savedLightEntries)
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-        print("💾 [LIFX] Saved \(selectedLights.count) selected light(s)")
+        print("[LIFX] Saved \(selectedLights.count) selected light(s)")
     }
 
     private func forgetSavedLights() {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        decoded.savedLightEntries = nil
-        decoded.savedSelectedLightIDs = nil
-        if let encoded = try? JSONEncoder().encode(decoded) { configData = encoded }
+        store.savedLightEntries = []
+        store.savedSelectedLightIDs = []
+        store.save()
         savedLightDisplayNames = []
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-        print("🗑️ [LIFX] Forgot saved lights")
+        print("[LIFX] Forgot saved lights")
     }
 
     // MARK: Body
@@ -112,7 +92,6 @@ struct LightsSettingsTab: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("LIFX Lights").font(.headline)
 
-                // Auto-reconnect
                 GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
                     VStack(alignment: .leading, spacing: 10) {
                         Toggle("Automatically reconnect to last used lights on app start",
@@ -137,7 +116,6 @@ struct LightsSettingsTab: View {
                                 }
                             }
                         }
-
                         HStack(spacing: 12) {
                             Button("Save Current Lights") { saveCurrentLights() }
                                 .disabled(lifx.selectedIDs.isEmpty).controlSize(.small)
@@ -146,7 +124,6 @@ struct LightsSettingsTab: View {
                                     .foregroundColor(.red).controlSize(.small)
                             }
                         }
-
                         Text("Select lights using the checkboxes below, then tap \"Save Current Lights\" to remember them for automatic reconnection.")
                             .font(.caption).foregroundColor(.secondary)
                     }
@@ -155,7 +132,6 @@ struct LightsSettingsTab: View {
 
                 Divider()
 
-                // Identify
                 GroupBox(label: Text("Identify").font(.subheadline)) {
                     Divider()
                     HStack(spacing: 12) {
@@ -173,16 +149,13 @@ struct LightsSettingsTab: View {
                             }
                         }
                         .disabled(lifx.lights.isEmpty).controlSize(.small)
-
                         Text(identifyStatusText).font(.caption).foregroundColor(.secondary)
                     }
                     .padding(8)
                 }
 
-                // Full light management panel
-                
                 Divider()
-                
+
                 LIFXPanel(vm: lifx, store: store)
                     .frame(minHeight: 420)
 
@@ -190,14 +163,14 @@ struct LightsSettingsTab: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Troubleshooting").font(.subheadline).foregroundColor(.secondary)
-                    Text("• LIFX bulbs must be on the same Wi‑Fi network\n• Local Network permission is required\n• UDP port 56700 must be reachable\n• Firewall should allow incoming connections")
+                    Text("- LIFX bulbs must be on the same WiFi network\n - Local Network permission is required\n - UDP port 56700 must be reachable\n - Firewall should allow incoming connections")
                         .font(.caption).foregroundColor(.secondary)
                 }
             }
         }
         .padding()
         .onAppear {
-            store.load()
+            // FIX 10: Don't call store.load() here -- it overwrites in-flight state.
             lifx.aliasByID = store.aliasesByID
             loadLightsSettings()
         }

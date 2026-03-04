@@ -1,5 +1,9 @@
 //
 //  SettingsTabs_GeneralSettingsTab.swift
+//
+//  FIX 6: Replaced @AppStorage + manual JSON decode/encode with direct
+//  @EnvironmentObject UserConfigStore access. Eliminates duplicate persistence
+//  logic and the risk of clobbering fields owned by other tabs.
 //  LIFXBTMacApp
 //
 //  General Settings tab — HR and power intensity modulation, power smoothing,
@@ -19,7 +23,7 @@ import SwiftUI
 // MARK: - General Settings Tab
 
 struct GeneralSettingsTab: View {
-    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
+    @EnvironmentObject var store: UserConfigStore
     @State private var showingResetAlert = false
 
     @State private var modulateIntensityWithHR:   Bool   = UserConfigStore.defaultsModulateIntensityWithHR
@@ -32,28 +36,28 @@ struct GeneralSettingsTab: View {
 
     // MARK: Persistence
 
+    // FIX 6: Read directly from UserConfigStore instead of decoding @AppStorage.
     private func loadSettings() {
-        guard let data = configData,
-              let d = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        modulateIntensityWithHR   = d.modulateIntensityWithHR
-        minIntensityPercent        = d.minIntensityPercent
-        maxIntensityPercent        = d.maxIntensityPercent
-        modulateIntensityWithPower = d.modulateIntensityWithPower  ?? UserConfigStore.defaultsModulateIntensityWithPower
-        minPowerIntensityPercent   = d.minPowerIntensityPercent    ?? UserConfigStore.defaultsMinPowerIntensityPercent
-        maxPowerIntensityPercent   = d.maxPowerIntensityPercent    ?? UserConfigStore.defaultsMaxPowerIntensityPercent
-        powerMovingAverageSeconds  = d.powerMovingAverageSeconds
+        modulateIntensityWithHR   = store.modulateIntensityWithHR
+        minIntensityPercent        = store.minIntensityPercent
+        maxIntensityPercent        = store.maxIntensityPercent
+        modulateIntensityWithPower = store.modulateIntensityWithPower
+        minPowerIntensityPercent   = store.minPowerIntensityPercent
+        maxPowerIntensityPercent   = store.maxPowerIntensityPercent
+        powerMovingAverageSeconds  = store.powerMovingAverageSeconds
     }
 
+    // FIX 6: Write directly to UserConfigStore. No manual encode/decode needed.
     private func saveSettings() {
-        mutateConfig { c in
-            c.modulateIntensityWithHR   = modulateIntensityWithHR
-            c.minIntensityPercent        = max(0, min(100, minIntensityPercent))
-            c.maxIntensityPercent        = max(0, min(100, maxIntensityPercent))
-            c.modulateIntensityWithPower = modulateIntensityWithPower
-            c.minPowerIntensityPercent   = max(0, min(100, minPowerIntensityPercent))
-            c.maxPowerIntensityPercent   = max(0, min(100, maxPowerIntensityPercent))
-            c.powerMovingAverageSeconds  = max(0, min(10, powerMovingAverageSeconds))
-        }
+        store.modulateIntensityWithHR   = modulateIntensityWithHR
+        store.minIntensityPercent        = max(0, min(100, minIntensityPercent))
+        store.maxIntensityPercent        = max(0, min(100, maxIntensityPercent))
+        store.modulateIntensityWithPower = modulateIntensityWithPower
+        store.minPowerIntensityPercent   = max(0, min(100, minPowerIntensityPercent))
+        store.maxPowerIntensityPercent   = max(0, min(100, maxPowerIntensityPercent))
+        store.powerMovingAverageSeconds  = max(0, min(10, powerMovingAverageSeconds))
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func resetToDefaults() {
@@ -67,15 +71,7 @@ struct GeneralSettingsTab: View {
         saveSettings()
     }
 
-    /// Read-modify-write helper — decodes, applies mutation, re-encodes, posts notification.
-    /// Only touches the fields passed to the closure; all other tab fields are preserved.
-    private func mutateConfig(_ block: (inout PersistedUserConfig) -> Void) {
-        guard let data = configData,
-              var config = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        block(&config)
-        if let encoded = try? JSONEncoder().encode(config) { configData = encoded }
-        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
-    }
+    // mutateConfig removed: FIX 6 uses UserConfigStore directly.
 
     // MARK: Body
 

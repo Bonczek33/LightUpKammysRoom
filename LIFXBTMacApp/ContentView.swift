@@ -33,9 +33,12 @@ struct ContentView: View {
                     BluetoothStatusBar(bt: bt, store: store)
                 }
 
+                Divider()
+                
                 LIFXStatusBar(vm: lifx, store: store)
 
                 Divider()
+                
 
                 AutoColorPanel(
                     auto: auto,
@@ -43,6 +46,7 @@ struct ContentView: View {
                     formatter: intFormatter
                 )
 
+                Divider()
                 Divider()
 
                 ChartsPanel(charts: charts)

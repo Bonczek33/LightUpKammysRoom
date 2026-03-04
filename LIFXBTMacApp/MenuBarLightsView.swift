@@ -77,9 +77,12 @@ struct MenuBarLightsView: View {
         }
         .padding(12)
         .onAppear {
-            // Ensure aliases are available for display names
-            store.load()
-            lifx.aliasByID = store.aliasesByID
+            // FIX 10: Don't call store.load() on every appearance — it can
+            // overwrite in-flight state (e.g. a scan running in the background).
+            // Aliases are populated by ContentView on startup; just sync here.
+            if lifx.aliasByID.isEmpty {
+                lifx.aliasByID = store.aliasesByID
+            }
         }
     }
 }

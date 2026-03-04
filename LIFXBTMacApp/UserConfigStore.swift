@@ -66,12 +66,17 @@ struct PersistedZone: Codable, Hashable {
     var paletteIndex: Int    // index into ZwiftZonePalette.colors
 }
 
-/// A minimal snapshot of a discovered LIFX light for persistence
+/// A minimal snapshot of a discovered LIFX light for persistence.
+/// capability and zoneCount are stored so reconnects skip re-probing.
+/// A minimal snapshot of a discovered LIFX light for persistence.
+/// deviceType and zoneCount are stored so reconnects skip re-probing.
 struct SavedLightEntry: Codable, Hashable {
-    let id: String      // MAC-based hex ID
-    let ip: String      // Last known IP
-    let label: String   // Device label at time of save
-    let alias: String?  // User-assigned name at time of save
+    let id: String               // MAC-based hex ID
+    let ip: String               // Last known IP
+    let label: String            // Device label at time of save
+    let alias: String?           // User-assigned name at time of save
+    var deviceType: LIFXDeviceType? // nil = pre-multizone save (treat as .bulb)
+    var zoneCount: Int?          // nil or 0 = not yet probed
 }
 
 @MainActor
