@@ -103,12 +103,14 @@ struct ContentView: View {
                 Task { @MainActor in
                     store.load()
                     applyStore()
-                    bindSensorSource()
+                    // bindSensorSource() is NOT called here — sensor source changes
+                    // are handled by .onChange(of: store.sensorInputSource) below,
+                    // which only fires when the source actually switches.
                 }
             }
 
-            // When the active profile changes, push its values into the store.
-            // applyProfile saves + posts settingsDidChange, so applyStore runs next tick.
+            // When the active profile changes, push values into memory + re-apply to auto.
+            // applyProfile no longer calls save() so we call applyStore() explicitly.
             NotificationCenter.default.addObserver(
                 forName: .activeProfileDidChange,
                 object: nil,
@@ -117,6 +119,7 @@ struct ContentView: View {
                 Task { @MainActor in
                     if let profile = note.userInfo?["profile"] as? UserProfile {
                         store.applyProfile(profile)
+                        applyStore()
                     }
                 }
             }
@@ -147,6 +150,7 @@ struct ContentView: View {
     }
 
     private func applyStore() {
+        print("💾 [ContentView] applyStore() ftp=\(store.ftp) src=\(store.autoSourceRaw) modHR=\(store.modulateIntensityWithHR) modPwr=\(store.modulateIntensityWithPower) ma=\(store.powerMovingAverageSeconds) lights=\(store.savedLightEntries.count) hrID=\(store.lastHRPeripheralID ?? "nil")")
         auto.dateOfBirth = store.dateOfBirth
         auto.ftp = store.ftp
         auto.weightKg = store.weightKg
@@ -168,18 +172,21 @@ struct ContentView: View {
     }
 
     private func saveAll() {
-        store.dateOfBirth = auto.dateOfBirth
-        store.ftp = auto.ftp
-        store.weightKg = auto.weightKg
+        // Note: full save (including lights) is done in AppDelegate.applicationWillTerminate.
+        // This is a best-effort save for the case where the window is closed without quitting.
         store.autoSourceRaw = auto.source.rawValue
-        store.powerMovingAverageSeconds = auto.powerMovingAverageSeconds
-        store.modulateIntensityWithHR = auto.modulateIntensityWithHR
-        store.minIntensityPercent = auto.minIntensityPercent
-        store.maxIntensityPercent = auto.maxIntensityPercent
-        store.modulateIntensityWithPower = auto.modulateIntensityWithPower
-        store.minPowerIntensityPercent = auto.minPowerIntensityPercent
-        store.maxPowerIntensityPercent = auto.maxPowerIntensityPercent
-        store.aliasesByID = lifx.aliasByID
+        store.aliasesByID   = lifx.aliasByID
+        let selected = lifx.lights.filter { lifx.selectedIDs.contains($0.id) }
+        if !selected.isEmpty {
+            store.savedLightEntries = selected.map { light in
+                let alias = lifx.aliasByID[light.id]?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return SavedLightEntry(
+                    id: light.id, ip: light.ip, label: light.label,
+                    alias: (alias?.isEmpty == false) ? alias : nil
+                )
+            }
+            store.savedSelectedLightIDs = selected.map(\.id)
+        }
         store.save()
     }
 

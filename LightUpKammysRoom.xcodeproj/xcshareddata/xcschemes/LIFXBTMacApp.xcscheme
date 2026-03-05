@@ -17,8 +17,8 @@
                      BuildableIdentifier = "primary"
                      BlueprintIdentifier = "96253C792F32857A00E17BB2"
                      BuildableName = "Light Up Kammy&apos;s Room.app"
-                     BlueprintName = "LIFXBTMacApp"
-                     ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+                     BlueprintName = "LightUpKammysRoom"
+                     ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
             </ActionContent>
@@ -35,8 +35,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "96253C792F32857A00E17BB2"
                BuildableName = "Light Up Kammy&apos;s Room.app"
-               BlueprintName = "LIFXBTMacApp"
-               ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+               BlueprintName = "LightUpKammysRoom"
+               ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -54,9 +54,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "96253C8A2F32857C00E17BB2"
-               BuildableName = "LIFXBTMacAppTests.xctest"
-               BlueprintName = "LIFXBTMacAppTests"
-               ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+               BuildableName = "LightUpKammysRoomTests.xctest"
+               BlueprintName = "LightUpKammysRoomTests"
+               ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -65,9 +65,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "96253C942F32857C00E17BB2"
-               BuildableName = "LIFXBTMacAppUITests.xctest"
-               BlueprintName = "LIFXBTMacAppUITests"
-               ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+               BuildableName = "LightUpKammysRoomUITests.xctest"
+               BlueprintName = "LightUpKammysRoomUITests"
+               ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -93,8 +93,8 @@
                      BuildableIdentifier = "primary"
                      BlueprintIdentifier = "96253C792F32857A00E17BB2"
                      BuildableName = "Light Up Kammy&apos;s Room.app"
-                     BlueprintName = "LIFXBTMacApp"
-                     ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+                     BlueprintName = "LightUpKammysRoom"
+                     ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
             </ActionContent>
@@ -106,8 +106,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "96253C792F32857A00E17BB2"
             BuildableName = "Light Up Kammy&apos;s Room.app"
-            BlueprintName = "LIFXBTMacApp"
-            ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+            BlueprintName = "LightUpKammysRoom"
+            ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -123,8 +123,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "96253C792F32857A00E17BB2"
             BuildableName = "Light Up Kammy&apos;s Room.app"
-            BlueprintName = "LIFXBTMacApp"
-            ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+            BlueprintName = "LightUpKammysRoom"
+            ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
@@ -145,8 +145,8 @@
                      BuildableIdentifier = "primary"
                      BlueprintIdentifier = "96253C792F32857A00E17BB2"
                      BuildableName = "Light Up Kammy&apos;s Room.app"
-                     BlueprintName = "LIFXBTMacApp"
-                     ReferencedContainer = "container:LIFXBTMacApp.xcodeproj">
+                     BlueprintName = "LightUpKammysRoom"
+                     ReferencedContainer = "container:LightUpKammysRoom.xcodeproj">
                   </BuildableReference>
                </EnvironmentBuildable>
             </ActionContent>

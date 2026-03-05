@@ -4,7 +4,7 @@
 //
 //  Multizone support:
 //  - probeDeviceType()         GetVersion(32) -> StateVersion(33) -> LIFXDeviceType
-//  - getZoneCount()            GetExtendedColorZones(509) -> StateExtendedColorZones(511)
+//  - getZoneCount()            GetExtendedColorZones(511) -> StateExtendedColorZones(512)
 //  - setExtendedColorZones()   SetExtendedColorZones(510) paints all zones one colour
 //  - setColorDispatch()        routes to setExtendedColorZones or setColor by device type
 //
@@ -56,18 +56,48 @@ final class LIFXLanControl {
         return (dt, product)
     }
 
-    /// Sends GetExtendedColorZones (509), reads StateExtendedColorZones (511).
+    /// Sends GetLabel (23), reads StateLabel (25).
+    /// Returns the device label string, or nil on timeout.
+    func getLabel(ip: String, targetHex: String,
+                  timeoutSeconds: Double = 2.0) async -> String? {
+        guard let target = dataFromHex8(targetHex) else { return nil }
+        let pkt = makePacket(tagged: false, target: target, type: 23, payload: Data())
+        guard let reply = await sendAndReceive(ip: ip, packet: pkt, expectedType: 25, timeout: timeoutSeconds),
+              reply.count >= 36 + 32 else { return nil }
+        // StateLabel payload: label (32 bytes, null-terminated UTF-8)
+        let labelData = reply.subdata(in: 36..<68)
+        let label = String(decoding: labelData.prefix { $0 != 0 }, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return label.isEmpty ? nil : label
+    }
+
+    /// Sends GetExtendedColorZones (511), reads StateExtendedColorZones (512).
     /// Returns the zone count reported by the device, or nil on timeout.
     func getZoneCount(ip: String, targetHex: String,
                       timeoutSeconds: Double = 2.0) async -> Int? {
         guard let target = dataFromHex8(targetHex) else { return nil }
-        let pkt = makePacket(tagged: false, target: target, type: 509, payload: Data())
-        guard let reply = await sendAndReceive(ip: ip, packet: pkt, expectedType: 511, timeout: timeoutSeconds),
+        let pkt = makePacket(tagged: false, target: target, type: 511, payload: Data())
+        guard let reply = await sendAndReceive(ip: ip, packet: pkt, expectedType: 512, timeout: timeoutSeconds),
               reply.count >= 36 + 2 else { return nil }
-        // StateExtendedColorZones payload starts with zones_count (2 bytes LE)
+        // StateExtendedColorZones payload: zones_count(2LE) zone_index(2LE) colors_count(1) colors(82*8)
         let count = Int(readUInt16LE(reply, offset: 36))
-        print("zones [LIFX] \(ip) reports \(count) zones")
+        print("🔍 [LIFX] \(ip) reports \(count) zones")
         return count > 0 ? count : nil
+    }
+
+    /// Combined convenience: probes device type, zone count, and label.
+    /// Returns (LIFXDeviceType, zoneCount, label?) — zoneCount is 0 for bulbs.
+    func getDeviceTypeAndZoneCount(ip: String, targetHex: String,
+                                   timeoutSeconds: Double = 2.0) async -> (LIFXDeviceType, Int, String?)? {
+        guard let (dt, _) = await probeDeviceType(ip: ip, targetHex: targetHex, timeoutSeconds: timeoutSeconds) else {
+            return nil
+        }
+        var zoneCount = 0
+        if dt.isMultizone {
+            zoneCount = await getZoneCount(ip: ip, targetHex: targetHex, timeoutSeconds: timeoutSeconds) ?? 0
+        }
+        let label = await getLabel(ip: ip, targetHex: targetHex, timeoutSeconds: timeoutSeconds)
+        return (dt, zoneCount, label)
     }
 
     // MARK: - Single-zone control
@@ -125,28 +155,41 @@ final class LIFXLanControl {
                                color: LIFXColor, zoneCount: Int,
                                durationMs: UInt32 = 0) {
         guard let target = dataFromHex8(targetHex) else { return }
-        let count = max(1, min(82, zoneCount == 0 ? 82 : zoneCount))
+        // Per LIFX LAN spec (type 510):
+        //   duration    Uint32  (4 bytes)
+        //   apply       Uint8   (1 byte)  — 1 = APPLY
+        //   zone_index  Uint16  (2 bytes) — first zone to apply from
+        //   colors_count Uint8  (1 byte)  — number of active colors
+        //   colors      82 x Color (82 * 8 = 656 bytes) — ALWAYS 82 entries, zero-pad unused
+        let activeCount = zoneCount > 0 ? min(zoneCount, 82) : 82
         var payload = Data()
-        payload.append(withBytes(durationMs.littleEndian))          // duration (4)
-        payload.append(UInt8(1))                                    // apply = APPLY (1)
-        payload.append(withBytes(UInt16(0).littleEndian))           // zone_index = 0 (2)
-        payload.append(withBytes(UInt16(count).littleEndian))       // colors_count (2)
-        for _ in 0..<count {
-            payload.append(withBytes(color.hueU16.littleEndian))
-            payload.append(withBytes(color.satU16.littleEndian))
-            payload.append(withBytes(color.briU16.littleEndian))
-            payload.append(withBytes(color.kelvin.littleEndian))
+        payload.append(withBytes(durationMs.littleEndian))   // duration    (4)
+        payload.append(UInt8(1))                             // apply=APPLY (1)
+        payload.append(withBytes(UInt16(0).littleEndian))    // zone_index  (2)
+        payload.append(UInt8(activeCount))                   // colors_count (1) ← was UInt16, off by 1 byte
+        // Always write exactly 82 Color entries (spec fixed-size)
+        for i in 0..<82 {
+            if i < activeCount {
+                payload.append(withBytes(color.hueU16.littleEndian))
+                payload.append(withBytes(color.satU16.littleEndian))
+                payload.append(withBytes(color.briU16.littleEndian))
+                payload.append(withBytes(color.kelvin.littleEndian))
+            } else {
+                payload.append(contentsOf: [UInt8](repeating: 0, count: 8))
+            }
         }
         sendFast(toIP: ip, packet: makePacket(tagged: false, target: target, type: 510, payload: payload))
     }
 
     /// Dispatches to setExtendedColorZones (multizone) or setColor (bulb).
+    /// Multizone devices always receive durationMs=0: a non-zero transition causes
+    /// the firmware to sweep colour zone-by-zone, which looks like a one-zone offset.
     func setColorDispatch(ip: String, targetHex: String, color: LIFXColor,
                           deviceType: LIFXDeviceType, zoneCount: Int,
                           durationMs: UInt32 = 0) {
         if deviceType.isMultizone {
             setExtendedColorZones(ip: ip, targetHex: targetHex, color: color,
-                                  zoneCount: zoneCount, durationMs: durationMs)
+                                  zoneCount: zoneCount, durationMs: 0)
         } else {
             setColor(ip: ip, targetHex: targetHex, color: color, durationMs: durationMs)
         }

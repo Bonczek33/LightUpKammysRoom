@@ -15,9 +15,9 @@
 //  Profile → store pipeline
 //  ─────────────────────────
 //  ProfileStore.activate / update  →  posts activeProfileDidChange
-//  ContentView.onReceive           →  calls UserConfigStore.applyProfile(_:)
-//  UserConfigStore.applyProfile    →  sets dateOfBirth/ftp/weightKg, saves,
-//                                     posts settingsDidChange
+//  ContentView.activeProfileDidChange → calls UserConfigStore.applyProfile(_:) then applyStore()
+//  UserConfigStore.applyProfile    →  sets dateOfBirth/ftp/weightKg in memory only
+//                                     (no save — ProfileStore owns these fields)
 //
 //  Created by Tomasz Bak on 2/16/26.
 //
@@ -35,8 +35,20 @@ extension Notification.Name {
 
 // MARK: - App
 
+// MARK: - App Delegate
+// applicationWillTerminate is the only reliable save point on macOS —
+// onDisappear on WindowGroup does not fire when the user quits with Cmd+Q.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var onTerminate: (() -> Void)?
+
+    func applicationWillTerminate(_ notification: Notification) {
+        onTerminate?()
+    }
+}
+
 @main
 struct LIFXBTMacApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var bt       = BluetoothSensorsViewModel()
     @StateObject private var antPlus  = ANTPlusSensorViewModel()
     @StateObject private var lifx     = LIFXDiscoveryViewModel()
@@ -60,12 +72,32 @@ struct LIFXBTMacApp: App {
                 bringMainWindowToFront()
                 // Apply the persisted active profile on first launch
                 if let p = profiles.activeProfile { store.applyProfile(p) }
+                // Wire up quit-time save. Captures store/lifx/auto by reference.
+                appDelegate.onTerminate = {
+                    // Sync light selection into store before encoding
+                    let selected = lifx.lights.filter { lifx.selectedIDs.contains($0.id) }
+                    if !selected.isEmpty {
+                        store.savedLightEntries = selected.map { light in
+                            let alias = lifx.aliasByID[light.id]?
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            return SavedLightEntry(
+                                id: light.id, ip: light.ip, label: light.label,
+                                alias: (alias?.isEmpty == false) ? alias : nil
+                            )
+                        }
+                        store.savedSelectedLightIDs = selected.map(\.id)
+                    }
+                    store.autoSourceRaw = auto.source.rawValue
+                    store.aliasesByID   = lifx.aliasByID
+                    store.save()
+                    print("💾 [App] Saved state on terminate")
+                }
             }
         }
         .defaultSize(width: 1000, height: 1000)
         .defaultPosition(.center)
 
-        // FIX 9: Removed dead #else branch — the whole codebase requires Swift 5.9+.
+        #if swift(>=5.9)
         Settings {
             SettingsView()
                 .frame(width: 1100, height: 650, alignment: .center)
@@ -80,6 +112,13 @@ struct LIFXBTMacApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 1100, height: 650)
         .defaultPosition(.center)
+        #else
+        Settings {
+            SettingsView()
+                .environmentObject(bt)
+                .environmentObject(profiles)
+        }
+        #endif
     }
 }
 

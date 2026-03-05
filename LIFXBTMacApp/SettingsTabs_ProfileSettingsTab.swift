@@ -200,6 +200,7 @@ private struct ProfileEditorView: View {
     // get rejected or cause re-entrant onChange loops.
     @State private var ftpText:    String
     @State private var weightText: String
+    @State private var useKg:      Bool = true
 
     let isActive:   Bool
     let onActivate: () -> Void
@@ -211,6 +212,7 @@ private struct ProfileEditorView: View {
         _draft       = State(initialValue: profile)
         _ftpText     = State(initialValue: "\(profile.ftp)")
         _weightText  = State(initialValue: String(format: "%.1f", profile.weightKg))
+        _useKg       = State(initialValue: true)
         self.isActive   = isActive
         self.onActivate = onActivate
         self.onSave     = onSave
@@ -292,20 +294,38 @@ private struct ProfileEditorView: View {
                             Spacer()
                         }
 
-                        // Weight — plain String field, parsed on commit
+                        // Weight — plain String field with kg/lbs toggle
                         HStack {
                             Text("Weight:")
                                 .frame(width: 120, alignment: .trailing)
-                            TextField("50.0", text: $weightText)
+                            TextField(useKg ? "70.0" : "154.0", text: $weightText)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 80)
                                 .help("Body weight — used to calculate W/kg in charts.")
                                 .onSubmit { commitWeight() }
                                 .onChange(of: weightText) { _, _ in commitWeight() }
-                            Text("kg").font(.caption).foregroundColor(.secondary)
+                            Picker("", selection: $useKg) {
+                                Text("kg").tag(true)
+                                Text("lbs").tag(false)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 80)
+                            .onChange(of: useKg) { _, kg in
+                                // Convert displayed value to new unit without touching the stored kg
+                                if kg {
+                                    weightText = String(format: "%.1f", draft.weightKg)
+                                } else {
+                                    weightText = String(format: "%.1f", draft.weightLbs)
+                                }
+                            }
                             Spacer()
-                            Text(String(format: "%.1f lbs", draft.weightLbs))
-                                .font(.caption).foregroundColor(.secondary)
+                            if useKg {
+                                Text(String(format: "%.1f lbs", draft.weightLbs))
+                                    .font(.caption).foregroundColor(.secondary)
+                            } else {
+                                Text(String(format: "%.1f kg", draft.weightKg))
+                                    .font(.caption).foregroundColor(.secondary)
+                            }
                         }
                     }
                     .padding(8)
@@ -331,7 +351,9 @@ private struct ProfileEditorView: View {
         // profile (different UUID), resync the string buffers from the new draft.
         .onChange(of: draft.id) { _, _ in
             ftpText    = "\(draft.ftp)"
-            weightText = String(format: "%.1f", draft.weightKg)
+            weightText = useKg
+                ? String(format: "%.1f", draft.weightKg)
+                : String(format: "%.1f", draft.weightLbs)
         }
     }
 
@@ -341,7 +363,7 @@ private struct ProfileEditorView: View {
     /// Ignores partial / empty input so the user can clear the field mid-edit.
     private func commitFTP() {
         guard let v = Int(ftpText.trimmingCharacters(in: .whitespaces)), v > 0 else { return }
-        let clamped = max(50, min(500, v))
+        let clamped = max(1, min(500, v))
         guard draft.ftp != clamped else { return }
         draft.ftp = clamped
         onSave(draft)
@@ -349,7 +371,8 @@ private struct ProfileEditorView: View {
 
     private func commitWeight() {
         guard let v = Double(weightText.trimmingCharacters(in: .whitespaces)), v > 0 else { return }
-        let clamped = max(30.0, min(200.0, v))
+        let kg = useKg ? v : v / 2.20462
+        let clamped = max(1.0, min(500.0, kg))
         guard draft.weightKg != clamped else { return }
         draft.weightKg = clamped
         onSave(draft)

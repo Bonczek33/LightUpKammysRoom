@@ -128,6 +128,7 @@ private struct ConnectSensorsButton: View {
                 } label: {
                     Label("Disconnect", systemImage: "cable.connector.slash")
                 }
+                .disabled(!isConnected && !isConnecting)
                 .help("Disconnect all BLE sensors.")
                 
 //                Text(lastKnownSummary)
@@ -264,6 +265,7 @@ private struct ConnectANTPlusButton: View {
                 } label: {
                     Label("Disconnect", systemImage: "cable.connector.slash")
                 }
+                .disabled(!isConnected && !isSearching)
                 .help("Stop ANT+ and disconnect all sensors.")
                 
 //                Text(lastKnownSummary)
@@ -299,109 +301,85 @@ struct AutoColorPanel: View {
     @ObservedObject var store: UserConfigStore
     let formatter: NumberFormatter
 
-    @State private var showingZoneInfo = false
+    @State private var showZoneInfo = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
+            // Row 1: label (left) + Zone Info button (right)
+            HStack {
                 Text("Auto Color").font(.headline)
                     .help("Automatically changes light color based on your training zone. Select a source to enable.")
-
-                Picker("Source", selection: $auto.source) {
-                    ForEach(AutoColorController.Source.allCases) { s in
-                        Text(s.rawValue).tag(s)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 560)
-                .help("Off = manual control. Heart Rate = zones based on %maxHR. Power = zones based on %FTP.")
-
-//                Spacer()
-//
-//                Text(auto.lastInputText)
-//                    .font(.caption)
-//                    .foregroundColor(.secondary)
-//                    .padding(.leading, 8)
-//                    .help("Current sensor reading and the reference value used for zone calculation.")
-            }
-
-            HStack(spacing: 18) {
-                HStack(spacing: 10) {
-                    Text("Age \(auto.ageYears)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .help("Calculated from your date of birth. Change in Settings > General.")
-
-                    Text("MaxHR \(auto.maxHR)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .help("Estimated maximum heart rate (220 − age). Used to calculate HR training zones.")
-
-                    Text("FTP \(auto.ftp)W")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .help("Functional Threshold Power. Change in Settings > General.")
-
-                    Text("Weight \(String(format: "%.1f", auto.weightKg))kg")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .help("Body weight used for W/kg calculation. Change in Settings > General.")
-                }
-
-//                Spacer()
-//
-//                AppliedColorIndicator(auto: auto)
-//
-//                Text(auto.lastZoneID.map { "Zone \($0)/7" } ?? "Zone —")
-//                    .font(.caption)
-//                    .foregroundColor(.secondary)
-//                    .help("Current training zone (1–6). Zone color is applied to all selected LIFX lights.")
-            }
-
-            // Compact colour swatches + "Zone Info" popover button
-            HStack(spacing: 12) {
-                HStack(spacing: 6) {
-                    ForEach(store.activeZones) { z in
-                        let c = ZwiftZonePalette.colors[z.paletteIndex].preview
-                        Circle()
-                            .fill(c)
-                            .frame(width: 12, height: 12)
-                            .overlay(Circle().stroke(Color.secondary.opacity(0.35), lineWidth: 0.5))
-                            .help(z.name)
-                    }
-                }
-
+                Spacer()
                 Button {
-                    showingZoneInfo.toggle()
+                    showZoneInfo.toggle()
                 } label: {
                     Label("Zone Info", systemImage: "info.circle")
-                        .font(.caption)
                 }
-                .buttonStyle(.borderless)
-                .help("Show training zone ranges, HR targets, and power targets for your current settings.")
-                .popover(isPresented: $showingZoneInfo, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 0) {
+                .help("Show training zone ranges and colors.")
+                .popover(isPresented: $showZoneInfo, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Zone Info").font(.headline)
                             Spacer()
-                            Button {
-                                showingZoneInfo = false
-                            } label: {
+                            Button { showZoneInfo = false } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.secondary)
                             }
-                            .buttonStyle(.borderless)
+                            .buttonStyle(.plain)
                         }
-                        .padding([.horizontal, .top], 16)
-                        .padding(.bottom, 8)
+
+                        HStack(spacing: 10) {
+                            Text("Age \(auto.ageYears)").font(.caption).foregroundColor(.secondary)
+                                .help("Calculated from your date of birth.")
+                            Text("MaxHR \(auto.maxHR)").font(.caption).foregroundColor(.secondary)
+                                .help("Estimated maximum heart rate (220 − age).")
+                            Text("FTP \(auto.ftp)W").font(.caption).foregroundColor(.secondary)
+                                .help("Functional Threshold Power.")
+                            Text("Weight \(String(format: "%.1f", auto.weightKg))kg").font(.caption).foregroundColor(.secondary)
+                                .help("Body weight. Change in Settings > General.")
+                        }
 
                         Divider()
 
                         ZoneLegendView(maxHR: auto.maxHR, ftp: auto.ftp, zones: store.activeZones)
-                            .padding(16)
                     }
-                    .frame(minWidth: 540)
+                    .padding(16)
+                    .frame(minWidth: 520)
                 }
+            }
+
+            // Row 2: source picker, left-aligned
+            Picker("Source", selection: $auto.source) {
+                ForEach(AutoColorController.Source.allCases) { s in
+                    Text(s.rawValue).tag(s)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 560, alignment: .leading)
+            .help("Off = manual control. Heart Rate = zones based on %maxHR. Power = zones based on %FTP.")
+
+            // Row 3: current color, intensity and zone indicator
+            HStack(spacing: 12) {
+                AppliedColorIndicator(auto: auto)
+
+                if let zoneID = auto.lastZoneID,
+                   let paletteIdx = auto.appliedPaletteIndex {
+                    let colorName = ZwiftZonePalette.colors[max(0, min(paletteIdx, ZwiftZonePalette.colors.count - 1))].name
+                    Text("Z\(zoneID) · \(colorName)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .help("Current training zone.")
+                } else {
+                    Text("Zone —")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .help("No zone active.")
+                }
+
+                Text(auto.lastInputText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .help("Current sensor reading used for zone calculation.")
             }
         }
         .onChange(of: auto.source) { _, newValue in
@@ -444,14 +422,14 @@ struct AppliedColorIndicator: View {
         guard let idx = paletteIndex else { return .gray.opacity(0.3) }
         let safeIdx = max(0, min(ZwiftZonePalette.colors.count - 1, idx))
         let p = ZwiftZonePalette.colors[safeIdx]
-        let brightness = (intensityPercent ?? 100.0) / 100.0
+        // Swatch always shows full zone colour — independent of intensity
         if p.satU16 == 0 {
-            return Color(hue: 0, saturation: 0, brightness: max(0.15, brightness * 0.7))
+            return Color(hue: 0, saturation: 0, brightness: 0.65)
         }
         return Color(
             hue: Double(p.hueU16) / 65535.0,
             saturation: Double(p.satU16) / 65535.0,
-            brightness: max(0.15, brightness * 0.9)
+            brightness: 0.9
         )
     }
 }
@@ -581,6 +559,25 @@ struct LIFXStatusBar: View {
                 ConnectLightsButton(vm: vm, store: store)
                 Spacer()
             }
+            HStack(spacing: 8) {
+                Button {
+                    vm.setPowerForSelected(true)
+                } label: {
+                    Label("Turn ON", systemImage: "power")
+                }
+                .disabled(vm.selectedIDs.isEmpty || vm.selectedIDs.allSatisfy({ vm.powerByID[$0] == true }))
+                .help("Power on all selected lights.")
+
+                Button {
+                    vm.setPowerForSelected(false)
+                } label: {
+                    Label("Turn OFF", systemImage: "power")
+                }
+                .disabled(vm.selectedIDs.isEmpty || !vm.selectedIDs.contains(where: { vm.powerByID[$0] == true }))
+                .help("Power off all selected lights.")
+
+                Spacer()
+            }
             Text(vm.status)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -632,9 +629,10 @@ struct LIFXPanel: View {
             }
 
             HStack(spacing: 12) {
-                Button("Turn ON Selected") { vm.setPowerForSelected(true) }.disabled(vm.selectedIDs.isEmpty)
+                Button("Turn ON Selected") { vm.setPowerForSelected(true) }.disabled(vm.selectedIDs.isEmpty || vm.selectedIDs.allSatisfy({ vm.powerByID[$0] == true }))
                     .help("Power on all selected lights.")
-                Button("Turn OFF Selected") { vm.setPowerForSelected(false) }.disabled(vm.selectedIDs.isEmpty)
+                Button("Turn OFF Selected") { vm.setPowerForSelected(false) }
+                    .disabled(vm.selectedIDs.isEmpty || !vm.selectedIDs.contains(where: { vm.powerByID[$0] == true }))
                     .help("Power off all selected lights.")
                 Spacer()
                 Text("\(vm.selectedIDs.count) selected").foregroundColor(.secondary)

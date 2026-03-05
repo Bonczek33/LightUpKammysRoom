@@ -26,6 +26,7 @@
 		96253CC52F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */; };
 		96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC62F3286A700E17BB2 /* ContentView.swift */; };
 		96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96253CC92F32936D00E17BB2 /* WindowSizing.swift */; };
+		C24968392F580BE400DC8B79 /* BluetoothSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C24968382F580BE400DC8B79 /* BluetoothSettingsTab.swift */; };
 		C252B59C2F48C2610011BAAD /* SettingsTabs_GeneralSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B59B2F48C2610011BAAD /* SettingsTabs_GeneralSettingsTab.swift */; };
 		C252B5A02F48C27B0011BAAD /* SettingsTabs_LightsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B59F2F48C27B0011BAAD /* SettingsTabs_LightsSettingsTab.swift */; };
 		C252B5A22F48C28F0011BAAD /* SettingsTabs_ZonesSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C252B5A12F48C28F0011BAAD /* SettingsTabs_ZonesSettingsTab.swift */; };
@@ -62,9 +63,9 @@
 		96253C812F32857B00E17BB2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		96253C842F32857B00E17BB2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		96253C862F32857B00E17BB2 /* LIFXBTMacApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LIFXBTMacApp.entitlements; sourceTree = "<group>"; };
-		96253C8B2F32857C00E17BB2 /* LIFXBTMacAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LIFXBTMacAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		96253C8B2F32857C00E17BB2 /* LightUpKammysRoomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LightUpKammysRoomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		96253C8F2F32857C00E17BB2 /* LIFXBTMacAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppTests.swift; sourceTree = "<group>"; };
-		96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LIFXBTMacAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		96253C952F32857C00E17BB2 /* LightUpKammysRoomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LightUpKammysRoomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		96253C992F32857C00E17BB2 /* LIFXBTMacAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppUITests.swift; sourceTree = "<group>"; };
 		96253C9B2F32857C00E17BB2 /* LIFXBTMacAppUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LIFXBTMacAppUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		96253CA82F3285A500E17BB2 /* LIFXLanControl.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXLanControl.swift; sourceTree = "<group>"; };
@@ -81,6 +82,7 @@
 		96253CC42F32861E00E17BB2 /* LIFXDiscoveryViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LIFXDiscoveryViewModel.swift; sourceTree = "<group>"; };
 		96253CC62F3286A700E17BB2 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		96253CC92F32936D00E17BB2 /* WindowSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSizing.swift; sourceTree = "<group>"; };
+		C24968382F580BE400DC8B79 /* BluetoothSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothSettingsTab.swift; sourceTree = "<group>"; };
 		C252B59B2F48C2610011BAAD /* SettingsTabs_GeneralSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabs_GeneralSettingsTab.swift; sourceTree = "<group>"; };
 		C252B59F2F48C27B0011BAAD /* SettingsTabs_LightsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabs_LightsSettingsTab.swift; sourceTree = "<group>"; };
 		C252B5A12F48C28F0011BAAD /* SettingsTabs_ZonesSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabs_ZonesSettingsTab.swift; sourceTree = "<group>"; };
@@ -135,8 +137,8 @@
 			isa = PBXGroup;
 			children = (
 				96253C7A2F32857A00E17BB2 /* Light Up Kammy's Room.app */,
-				96253C8B2F32857C00E17BB2 /* LIFXBTMacAppTests.xctest */,
-				96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */,
+				96253C8B2F32857C00E17BB2 /* LightUpKammysRoomTests.xctest */,
+				96253C952F32857C00E17BB2 /* LightUpKammysRoomUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -144,6 +146,7 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C24968382F580BE400DC8B79 /* BluetoothSettingsTab.swift */,
 				C252B5A92F48C6230011BAAD /* SettingsTabs_UserProfileTab.swift */,
 				C252B5A72F48C6140011BAAD /* SettingsTabs_ProfileSettingsTab.swift */,
 				C252B5A32F48C2960011BAAD /* SettingsTabs_AboutSettingsTab.swift */,
@@ -206,9 +209,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		96253C792F32857A00E17BB2 /* LIFXBTMacApp */ = {
+		96253C792F32857A00E17BB2 /* LightUpKammysRoom */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 96253C9F2F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacApp" */;
+			buildConfigurationList = 96253C9F2F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoom" */;
 			buildPhases = (
 				96253C762F32857A00E17BB2 /* Sources */,
 				96253C772F32857A00E17BB2 /* Frameworks */,
@@ -219,14 +222,14 @@
 			);
 			dependencies = (
 			);
-			name = LIFXBTMacApp;
+			name = LightUpKammysRoom;
 			productName = LIFXBTMacApp;
 			productReference = 96253C7A2F32857A00E17BB2 /* Light Up Kammy's Room.app */;
 			productType = "com.apple.product-type.application";
 		};
-		96253C8A2F32857C00E17BB2 /* LIFXBTMacAppTests */ = {
+		96253C8A2F32857C00E17BB2 /* LightUpKammysRoomTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 96253CA22F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacAppTests" */;
+			buildConfigurationList = 96253CA22F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoomTests" */;
 			buildPhases = (
 				96253C872F32857C00E17BB2 /* Sources */,
 				96253C882F32857C00E17BB2 /* Frameworks */,
@@ -237,14 +240,14 @@
 			dependencies = (
 				96253C8D2F32857C00E17BB2 /* PBXTargetDependency */,
 			);
-			name = LIFXBTMacAppTests;
+			name = LightUpKammysRoomTests;
 			productName = LIFXBTMacAppTests;
-			productReference = 96253C8B2F32857C00E17BB2 /* LIFXBTMacAppTests.xctest */;
+			productReference = 96253C8B2F32857C00E17BB2 /* LightUpKammysRoomTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		96253C942F32857C00E17BB2 /* LIFXBTMacAppUITests */ = {
+		96253C942F32857C00E17BB2 /* LightUpKammysRoomUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 96253CA52F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacAppUITests" */;
+			buildConfigurationList = 96253CA52F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoomUITests" */;
 			buildPhases = (
 				96253C912F32857C00E17BB2 /* Sources */,
 				96253C922F32857C00E17BB2 /* Frameworks */,
@@ -255,9 +258,9 @@
 			dependencies = (
 				96253C972F32857C00E17BB2 /* PBXTargetDependency */,
 			);
-			name = LIFXBTMacAppUITests;
+			name = LightUpKammysRoomUITests;
 			productName = LIFXBTMacAppUITests;
-			productReference = 96253C952F32857C00E17BB2 /* LIFXBTMacAppUITests.xctest */;
+			productReference = 96253C952F32857C00E17BB2 /* LightUpKammysRoomUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -283,7 +286,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 96253C752F32857A00E17BB2 /* Build configuration list for PBXProject "LIFXBTMacApp" */;
+			buildConfigurationList = 96253C752F32857A00E17BB2 /* Build configuration list for PBXProject "LightUpKammysRoom" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -296,9 +299,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				96253C792F32857A00E17BB2 /* LIFXBTMacApp */,
-				96253C8A2F32857C00E17BB2 /* LIFXBTMacAppTests */,
-				96253C942F32857C00E17BB2 /* LIFXBTMacAppUITests */,
+				96253C792F32857A00E17BB2 /* LightUpKammysRoom */,
+				96253C8A2F32857C00E17BB2 /* LightUpKammysRoomTests */,
+				96253C942F32857C00E17BB2 /* LightUpKammysRoomUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -376,6 +379,7 @@
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
 				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
+				C24968392F580BE400DC8B79 /* BluetoothSettingsTab.swift in Sources */,
 				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,
 				C252B5A82F48C6140011BAAD /* SettingsTabs_ProfileSettingsTab.swift in Sources */,
 				C252B5A42F48C2960011BAAD /* SettingsTabs_AboutSettingsTab.swift in Sources */,
@@ -407,12 +411,12 @@
 /* Begin PBXTargetDependency section */
 		96253C8D2F32857C00E17BB2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 96253C792F32857A00E17BB2 /* LIFXBTMacApp */;
+			target = 96253C792F32857A00E17BB2 /* LightUpKammysRoom */;
 			targetProxy = 96253C8C2F32857C00E17BB2 /* PBXContainerItemProxy */;
 		};
 		96253C972F32857C00E17BB2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 96253C792F32857A00E17BB2 /* LIFXBTMacApp */;
+			target = 96253C792F32857A00E17BB2 /* LightUpKammysRoom */;
 			targetProxy = 96253C962F32857C00E17BB2 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -653,7 +657,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LIFXBTMacApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LIFXBTMacApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LightUpKammysRoom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LightUpKammysRoom";
 			};
 			name = Debug;
 		};
@@ -671,7 +675,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LIFXBTMacApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LIFXBTMacApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/LightUpKammysRoom.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/LightUpKammysRoom";
 			};
 			name = Release;
 		};
@@ -710,7 +714,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		96253C752F32857A00E17BB2 /* Build configuration list for PBXProject "LIFXBTMacApp" */ = {
+		96253C752F32857A00E17BB2 /* Build configuration list for PBXProject "LightUpKammysRoom" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				96253C9D2F32857C00E17BB2 /* Debug */,
@@ -719,7 +723,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		96253C9F2F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacApp" */ = {
+		96253C9F2F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoom" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				96253CA02F32857C00E17BB2 /* Debug */,
@@ -728,7 +732,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		96253CA22F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacAppTests" */ = {
+		96253CA22F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoomTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				96253CA32F32857C00E17BB2 /* Debug */,
@@ -737,7 +741,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		96253CA52F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LIFXBTMacAppUITests" */ = {
+		96253CA52F32857C00E17BB2 /* Build configuration list for PBXNativeTarget "LightUpKammysRoomUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				96253CA62F32857C00E17BB2 /* Debug */,

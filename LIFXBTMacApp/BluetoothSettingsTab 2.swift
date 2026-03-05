@@ -1,5 +1,13 @@
 //
-//  SettingsTabs_SensorsSettingsTab.swift
+//  BluetoothSettingsTab 2.swift
+//  LIFXBTMacApp
+//
+//  Created by Tomasz Bak on 3/3/26.
+//
+
+
+//
+//  BluetoothSettingsTab.swift
 //  LIFXBTMacApp
 //
 //  Created by Tomasz Bak on 2/20/26.
@@ -23,9 +31,9 @@
 
 import SwiftUI
 
-// MARK: - Sensors Settings Tab
+// MARK: - Bluetooth / Sensors Settings Tab
 
-struct SensorsSettingsTab: View {
+struct BluetoothSettingsTab: View {
     @EnvironmentObject var bt:      BluetoothSensorsViewModel
     @EnvironmentObject var antPlus: ANTPlusSensorViewModel
     @EnvironmentObject var store:   UserConfigStore

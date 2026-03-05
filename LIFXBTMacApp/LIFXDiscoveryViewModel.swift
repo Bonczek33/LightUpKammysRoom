@@ -20,13 +20,12 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     @Published private(set) var colorByID: [String: LIFXColor] = [:]
     @Published private(set) var brightnessByID: [String: UInt16] = [:]
 
+    // Device type and zone count — populated from StateVersion during discovery/scan
+    @Published private(set) var deviceTypeByID: [String: LIFXDeviceType] = [:]
+    @Published private(set) var zoneCountByID:  [String: Int] = [:]
+
     // Local aliases (stored on Mac, not on bulb)
     @Published var aliasByID: [String: String] = [:]
-
-    /// Device type probed via GetVersion after each discovery event.
-    @Published private(set) var deviceTypeByID: [String: LIFXDeviceType] = [:]
-    /// Zone count for multizone devices, populated after probing.
-    @Published private(set) var zoneCountByID:  [String: Int] = [:]
 
     private let discovery = LIFXLanDiscovery()
     private let control = LIFXLanControl()
@@ -60,11 +59,15 @@ final class LIFXDiscoveryViewModel: ObservableObject {
 
     func scan() {
         stop()
-        let previousSelection = selectedIDs          // preserve selection across rescans (FIX 8)
 
         lights.removeAll()
         status = "Scanning…"
-        powerByID.removeAll(); colorByID.removeAll(); brightnessByID.removeAll()
+        selectedIDs.removeAll()
+
+        powerByID.removeAll()
+        colorByID.removeAll()
+        brightnessByID.removeAll()
+
         for (_, t) in brightnessDebounce { t.cancel() }
         brightnessDebounce.removeAll()
 
@@ -73,8 +76,16 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             onLight: { [weak self] light in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.upsertLight(light)
-                    self.probeDeviceTypeIfNeeded(light)
+                    if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
+                        self.lights[idx] = light
+                    } else {
+                        self.lights.append(light)
+                    }
+                    if self.brightnessByID[light.id] == nil { self.brightnessByID[light.id] = 32768 }
+                    // Probe device type if not yet known
+                    if self.deviceTypeByID[light.id] == nil {
+                        Task { await self.probeDeviceType(light) }
+                    }
                 }
             }
         )
@@ -82,10 +93,6 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             self.discovery.stop()
-            // Restore only IDs still present after the scan
-            self.selectedIDs = previousSelection.filter { id in
-                self.lights.contains(where: { $0.id == id })
-            }
             self.status = "Done (poll 2s)"
             self.startPollingAllLights(everySeconds: self.pollingIntervalSeconds)
         }
@@ -103,25 +110,25 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     func autoReconnectLights(savedEntries: [SavedLightEntry], savedSelectedIDs: [String]) {
         guard !savedEntries.isEmpty else { return }
 
+        // Populate lights list from saved data so the UI shows them immediately
         for entry in savedEntries {
-            var light = LIFXLight(id: entry.id, label: entry.label, ip: entry.ip)
-            // Restore persisted device type and zone count so the right protocol
-            // is used immediately before the probe response arrives.
-            if let dt = entry.deviceType {
-                light.deviceType = dt
-                deviceTypeByID[entry.id] = dt
+            let light = LIFXLight(id: entry.id, label: entry.label, ip: entry.ip)
+            if !lights.contains(where: { $0.id == entry.id }) {
+                lights.append(light)
             }
-            if let zc = entry.zoneCount, zc > 0 {
-                light.zoneCount = zc
-                zoneCountByID[entry.id] = zc
-            }
-            if !lights.contains(where: { $0.id == light.id }) { lights.append(light) }
             if brightnessByID[light.id] == nil { brightnessByID[light.id] = 32768 }
+            
+            // Restore alias if it was saved and not already set
             if let alias = entry.alias, !alias.isEmpty,
-               (aliasByID[entry.id]?.isEmpty ?? true) { aliasByID[entry.id] = alias }
+               (aliasByID[entry.id]?.isEmpty ?? true) {
+                aliasByID[entry.id] = alias
+            }
         }
 
+        // Restore selection
         selectedIDs = Set(savedSelectedIDs)
+
+        // Run a scan to refresh IPs and discover any new lights
         status = "Reconnecting saved lights…"
         print("🔄 [LIFX] Auto-reconnect: restoring \(savedEntries.count) light(s), \(savedSelectedIDs.count) selected")
 
@@ -130,8 +137,15 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             onLight: { [weak self] light in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.upsertLight(light)
-                    self.probeDeviceTypeIfNeeded(light)
+                    if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
+                        self.lights[idx] = light  // Update IP/label from fresh scan
+                    } else {
+                        self.lights.append(light)
+                    }
+                    if self.brightnessByID[light.id] == nil { self.brightnessByID[light.id] = 32768 }
+                    if self.deviceTypeByID[light.id] == nil {
+                        Task { await self.probeDeviceType(light) }
+                    }
                 }
             }
         )
@@ -172,9 +186,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         
         let allLights = lights
         let ctrl = control
-        let dtCache = deviceTypeByID
-        let zcCache = zoneCountByID
-
+        
         identifyTask = Task { [weak self] in
             let onDuration: UInt64 = 1_000_000_000   // 1s
             let offDuration: UInt64 = 500_000_000     // 0.5s
@@ -195,12 +207,10 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                     
                     // ON at 100% brightness (white)
                     ctrl.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: 0)
-                    ctrl.setColorDispatch(ip: light.ip, targetHex: light.id,
-                        color: LIFXColor(hue: 0, saturation: 0, brightness: 1.0,
-                                         hueU16: 0, satU16: 0, briU16: 65535, kelvin: 6500),
-                        deviceType: dtCache[light.id] ?? light.deviceType,
-                        zoneCount: zcCache[light.id] ?? light.zoneCount,
-                        durationMs: 0)
+                    ctrl.setColor(ip: light.ip, targetHex: light.id, color: LIFXColor(
+                        hue: 0, saturation: 0, brightness: 1.0,
+                        hueU16: 0, satU16: 0, briU16: 65535, kelvin: 6500
+                    ), durationMs: 0)
                     do { try await Task.sleep(nanoseconds: onDuration) } catch { break }
                     
                     guard !Task.isCancelled else { break }
@@ -267,7 +277,10 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             hueU16: current.hueU16, satU16: current.satU16, briU16: bri, kelvin: current.kelvin
         )
 
-        applyColorToLight(light, color: updated, durationMs: 0)
+        let dt    = deviceTypeByID[light.id] ?? .bulb
+        let zones = zoneCountByID[light.id]  ?? 0
+        control.setColorDispatch(ip: light.ip, targetHex: light.id, color: updated,
+                                 deviceType: dt, zoneCount: zones, durationMs: 0)
         colorByID[lightID] = updated
     }
 
@@ -282,7 +295,11 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         for light in selected {
             let bri = brightness ?? brightnessByID[light.id] ?? 32768
             let c = makeColorFromPalette(index: safe, bri: bri)
-            applyColorToLight(light, color: c, durationMs: durationMs)
+            let dt    = deviceTypeByID[light.id] ?? .bulb
+            let zones = zoneCountByID[light.id]  ?? 0
+            print("🎨 [LIFX] \(light.label) dt=\(dt) zones=\(zones) hue=\(Int(c.hue*360))° -> \(dt.isMultizone ? "SetExtendedColorZones" : "SetColor")")
+            control.setColorDispatch(ip: light.ip, targetHex: light.id, color: c,
+                                     deviceType: dt, zoneCount: zones, durationMs: durationMs)
             colorByID[light.id] = c
             if let brightness { brightnessByID[light.id] = brightness }
         }
@@ -340,66 +357,41 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 hue: Double(hueU16) / 65535.0,
                 saturation: Double(satU16) / 65535.0,
                 brightness: Double(bri) / 65535.0,
-                hueU16: hueU16, satU16: satU16, briU16: bri, kelvin: kelvin
+                hueU16: hueU16,
+                satU16: satU16,
+                briU16: bri,
+                kelvin: kelvin
             )
-            applyColorToLight(light, color: c, durationMs: durationMs)
+            let dt    = deviceTypeByID[light.id] ?? .bulb
+            let zones = zoneCountByID[light.id]  ?? 0
+            control.setColorDispatch(ip: light.ip, targetHex: light.id, color: c,
+                                     deviceType: dt, zoneCount: zones, durationMs: durationMs)
             colorByID[light.id] = c
         }
     }
 
-    // MARK: - Private: color routing
+    // MARK: - Device type probing
 
-    /// Single dispatch point for all color commands.
-    /// Reads cached deviceType/zoneCount and calls the right LAN method.
-    private func applyColorToLight(_ light: LIFXLight, color: LIFXColor, durationMs: UInt32) {
-        let dt    = deviceTypeByID[light.id] ?? light.deviceType
-        let zones = zoneCountByID[light.id]  ?? light.zoneCount
-        control.setColorDispatch(ip: light.ip, targetHex: light.id, color: color,
-                                 deviceType: dt, zoneCount: zones, durationMs: durationMs)
-    }
-
-    // MARK: - Private: upsert
-
-    private func upsertLight(_ light: LIFXLight) {
-        if let idx = lights.firstIndex(where: { $0.id == light.id }) {
-            var updated      = light
-            updated.deviceType = lights[idx].deviceType  // preserve probed values
-            updated.zoneCount  = lights[idx].zoneCount
-            lights[idx]        = updated
-        } else {
-            lights.append(light)
+    /// Sends GetVersion (type 32) and maps the product ID to LIFXDeviceType.
+    /// Updates deviceTypeByID and zoneCountByID on @MainActor.
+    private func probeDeviceType(_ light: LIFXLight) async {
+        guard let (dt, zc, label) = await control.getDeviceTypeAndZoneCount(ip: light.ip, targetHex: light.id) else {
+            print("🔍 [LIFX] \(light.ip) — no StateVersion response, defaulting to Bulb")
+            await MainActor.run { self.deviceTypeByID[light.id] = .bulb }
+            return
         }
-        if brightnessByID[light.id] == nil { brightnessByID[light.id] = 32768 }
-    }
-
-    // MARK: - Private: device type probing
-
-    /// Fires an async probe for any light not yet identified.
-    /// Results update lights[], deviceTypeByID, zoneCountByID on @MainActor.
-    private func probeDeviceTypeIfNeeded(_ light: LIFXLight) {
-        let existing = deviceTypeByID[light.id]
-        // Only probe if we have no cached result yet
-        guard existing == nil else { return }
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard let (dt, _) = await self.control.probeDeviceType(
-                    ip: light.ip, targetHex: light.id) else { return }
-
+        print("🔍 [LIFX] \(light.ip) -> \(dt) zones=\(zc) label='\(label ?? "—")'")
+        await MainActor.run {
             self.deviceTypeByID[light.id] = dt
+            self.zoneCountByID[light.id]  = zc
+            // Sync deviceType, zoneCount, and label back into the lights array
             if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
                 self.lights[idx].deviceType = dt
-            }
-
-            if dt.isMultizone,
-               let zc = await self.control.getZoneCount(ip: light.ip, targetHex: light.id) {
-                self.zoneCountByID[light.id] = zc
-                if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
-                    self.lights[idx].zoneCount = zc
+                self.lights[idx].productID  = nil
+                if let label, !label.isEmpty {
+                    self.lights[idx].label = label
+                    print("🏷 [LIFX] \(light.ip) label from control: '\(label)'")
                 }
-                print("✅ [LIFX] \(light.ip): \(dt.displayName), \(zc) zones")
-            } else {
-                print("✅ [LIFX] \(light.ip): \(dt.displayName)")
             }
         }
     }

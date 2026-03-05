@@ -28,92 +28,68 @@ import SwiftUI
 struct BluetoothSettingsTab: View {
     @EnvironmentObject var bt:      BluetoothSensorsViewModel
     @EnvironmentObject var antPlus: ANTPlusSensorViewModel
-    @AppStorage("lifx_bt_tacx_user_config_v10") private var configData: Data?
+    @EnvironmentObject var store:   UserConfigStore
 
-    @State private var autoReconnect:       Bool    = true
-    @State private var savedHRName:         String? = nil
-    @State private var savedPowerName:      String? = nil
-    @State private var sensorSource:        String  = "ble"
-    @State private var antPlusAutoReconnect: Bool   = true
-    @State private var savedANTHRName:      String? = nil
-    @State private var savedANTPowerName:   String? = nil
+    // No local @State mirrors — all controls bind directly to store.*
+    // so values are always current regardless of when store.load() ran.
 
     // MARK: Persistence helpers
 
-    private func loadBTSettings() {
-        guard let data = configData,
-              let decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        autoReconnect        = decoded.btAutoReconnect ?? true
-        savedHRName          = decoded.lastHRPeripheralName
-        savedPowerName       = decoded.lastPowerPeripheralName
-        sensorSource         = decoded.sensorInputSource ?? "ble"
-        antPlusAutoReconnect = decoded.antPlusAutoReconnect ?? true
-        savedANTHRName       = decoded.lastANTHRDeviceName
-        savedANTPowerName    = decoded.lastANTPowerDeviceName
-    }
-
     private func saveSensorSource(_ value: String) {
-        mutateConfig { $0.sensorInputSource = value }
+        store.sensorInputSource = value
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveBTAutoReconnect(_ value: Bool) {
-        mutateConfig { $0.btAutoReconnect = value }
+        store.btAutoReconnect = value
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveCurrentDevices() {
-        mutateConfig { config in
-            if let name = bt.connectedHRName, let id = bt.connectedHRPeripheralID {
-                config.lastHRPeripheralID = id; config.lastHRPeripheralName = name
-                savedHRName = name
-            }
-            if let name = bt.connectedPowerName, let id = bt.connectedPowerPeripheralID {
-                config.lastPowerPeripheralID = id; config.lastPowerPeripheralName = name
-                savedPowerName = name
-            }
+        if let name = bt.connectedHRName, let id = bt.connectedHRPeripheralID {
+            store.lastHRPeripheralID = id; store.lastHRPeripheralName = name
         }
+        if let name = bt.connectedPowerName, let id = bt.connectedPowerPeripheralID {
+            store.lastPowerPeripheralID = id; store.lastPowerPeripheralName = name
+        }
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func clearSavedDevices() {
-        mutateConfig { config in
-            config.lastHRPeripheralID = nil;   config.lastHRPeripheralName = nil
-            config.lastPowerPeripheralID = nil; config.lastPowerPeripheralName = nil
-        }
-        savedHRName = nil; savedPowerName = nil
+        store.lastHRPeripheralID = nil;   store.lastHRPeripheralName = nil
+        store.lastPowerPeripheralID = nil; store.lastPowerPeripheralName = nil
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveANTPlusAutoReconnect(_ value: Bool) {
-        mutateConfig { $0.antPlusAutoReconnect = value }
+        store.antPlusAutoReconnect = value
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func saveCurrentANTDevices() {
-        mutateConfig { config in
-            if let num = antPlus.connectedHRDeviceNumber, let name = antPlus.connectedHRName {
-                config.lastANTHRDeviceNumber = num; config.lastANTHRDeviceName = name
-                savedANTHRName = name
-            }
-            if let num = antPlus.connectedPowerDeviceNumber, let name = antPlus.connectedPowerName {
-                config.lastANTPowerDeviceNumber = num; config.lastANTPowerDeviceName = name
-                savedANTPowerName = name
-            }
+        if let num = antPlus.connectedHRDeviceNumber, let name = antPlus.connectedHRName {
+            store.lastANTHRDeviceNumber = num; store.lastANTHRDeviceName = name
         }
+        if let num = antPlus.connectedPowerDeviceNumber, let name = antPlus.connectedPowerName {
+            store.lastANTPowerDeviceNumber = num; store.lastANTPowerDeviceName = name
+        }
+        store.save()
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
 
     private func clearSavedANTDevices() {
-        mutateConfig { config in
-            config.lastANTHRDeviceNumber = nil;  config.lastANTHRDeviceName = nil
-            config.lastANTPowerDeviceNumber = nil; config.lastANTPowerDeviceName = nil
-        }
-        savedANTHRName = nil; savedANTPowerName = nil
-    }
-
-    /// Read-modify-write helper — decodes, applies mutation, re-encodes, posts notification.
-    private func mutateConfig(_ block: (inout PersistedUserConfig) -> Void) {
-        guard let data = configData,
-              var decoded = try? JSONDecoder().decode(PersistedUserConfig.self, from: data) else { return }
-        block(&decoded)
-        if let encoded = try? JSONEncoder().encode(decoded) { configData = encoded }
+        store.lastANTHRDeviceNumber = nil;   store.lastANTHRDeviceName = nil
+        store.lastANTPowerDeviceNumber = nil; store.lastANTPowerDeviceName = nil
+        store.save()
         NotificationCenter.default.post(name: .settingsDidChange, object: nil)
     }
+
+
 
     // MARK: Body
 
@@ -125,15 +101,15 @@ struct BluetoothSettingsTab: View {
                 // Source selector
                 GroupBox(label: Text("Input Source").font(.subheadline)) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Picker("Sensor source:", selection: $sensorSource) {
+                        Picker("Sensor source:", selection: $store.sensorInputSource) {
                             Text("Bluetooth Low Energy (BLE)").tag("ble")
                             Text("ANT+ (USB dongle)").tag("ant+")
                         }
                         .pickerStyle(.radioGroup)
-                        .onChange(of: sensorSource) { _, newValue in saveSensorSource(newValue) }
+                        .onChange(of: store.sensorInputSource) { _, newValue in saveSensorSource(newValue) }
                         .help("BLE uses built-in Bluetooth. ANT+ requires a USB ANT+ dongle.")
 
-                        if sensorSource == "ant+" {
+                        if store.sensorInputSource == "ant+" {
                             Text("ANT+ uses a USB dongle. Most cycling sensors broadcast on both ANT+ and BLE simultaneously.")
                                 .font(.caption).foregroundColor(.secondary)
                         } else {
@@ -145,7 +121,7 @@ struct BluetoothSettingsTab: View {
                 }
 
                 // ANT+ section
-                if sensorSource == "ant+" {
+                if store.sensorInputSource == "ant+" {
                     Divider()
                     Text("ANT+ Sensors").font(.headline)
                     antPlusSavedDevicesBox()
@@ -159,7 +135,7 @@ struct BluetoothSettingsTab: View {
                 }
 
                 // BLE section
-                if sensorSource == "ble" {
+                if store.sensorInputSource == "ble" {
                     Divider()
                     Text("Bluetooth Sensors").font(.headline)
                     bleSavedDevicesBox()
@@ -174,7 +150,7 @@ struct BluetoothSettingsTab: View {
             }
             .padding()
         }
-        .onAppear { loadBTSettings() }
+
     }
 
     // MARK: ANT+ boxes
@@ -183,19 +159,19 @@ struct BluetoothSettingsTab: View {
         GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Automatically reconnect to last used sensors on app start",
-                       isOn: $antPlusAutoReconnect)
+                       isOn: $store.antPlusAutoReconnect)
                     .toggleStyle(.switch)
-                    .onChange(of: antPlusAutoReconnect) { _, v in saveANTPlusAutoReconnect(v) }
+                    .onChange(of: store.antPlusAutoReconnect) { _, v in saveANTPlusAutoReconnect(v) }
                     .help("Connects to the ANT+ dongle and searches for saved sensors on launch.")
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
-                        Text("Saved HR: \(savedANTHRName ?? "None")").font(.caption).foregroundColor(.secondary)
+                        Text("Saved HR: \(store.lastANTHRDeviceName ?? "None")").font(.caption).foregroundColor(.secondary)
                     }
                     HStack(spacing: 6) {
                         Image(systemName: "bolt.fill").foregroundColor(.orange).font(.caption)
-                        Text("Saved Power: \(savedANTPowerName ?? "None")").font(.caption).foregroundColor(.secondary)
+                        Text("Saved Power: \(store.lastANTPowerDeviceName ?? "None")").font(.caption).foregroundColor(.secondary)
                     }
                 }
 
@@ -203,7 +179,7 @@ struct BluetoothSettingsTab: View {
                     Button("Save Current Devices") { saveCurrentANTDevices() }
                         .disabled(antPlus.connectedHRName == nil && antPlus.connectedPowerName == nil)
                         .controlSize(.small)
-                    if savedANTHRName != nil || savedANTPowerName != nil {
+                    if store.lastANTHRDeviceName != nil || store.lastANTPowerDeviceName != nil {
                         Button("Forget Saved Devices") { clearSavedANTDevices() }
                             .foregroundColor(.red).controlSize(.small)
                     }
@@ -311,18 +287,18 @@ struct BluetoothSettingsTab: View {
         GroupBox(label: Text("Auto-Reconnect").font(.subheadline)) {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Automatically reconnect to last used sensors on app start",
-                       isOn: $autoReconnect)
+                       isOn: $store.btAutoReconnect)
                     .toggleStyle(.switch)
-                    .onChange(of: autoReconnect) { _, v in saveBTAutoReconnect(v) }
+                    .onChange(of: store.btAutoReconnect) { _, v in saveBTAutoReconnect(v) }
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill").foregroundColor(.pink).font(.caption)
-                        Text("Saved HR: \(savedHRName ?? "None")").font(.caption).foregroundColor(.secondary)
+                        Text("Saved HR: \(store.lastHRPeripheralName ?? "None")").font(.caption).foregroundColor(.secondary)
                     }
                     HStack(spacing: 6) {
                         Image(systemName: "bolt.fill").foregroundColor(.orange).font(.caption)
-                        Text("Saved Power: \(savedPowerName ?? "None")").font(.caption).foregroundColor(.secondary)
+                        Text("Saved Power: \(store.lastPowerPeripheralName ?? "None")").font(.caption).foregroundColor(.secondary)
                     }
                 }
 
@@ -330,7 +306,7 @@ struct BluetoothSettingsTab: View {
                     Button("Save Current Devices") { saveCurrentDevices() }
                         .disabled(bt.connectedHRName == nil && bt.connectedPowerName == nil)
                         .controlSize(.small)
-                    if savedHRName != nil || savedPowerName != nil {
+                    if store.lastHRPeripheralName != nil || store.lastPowerPeripheralName != nil {
                         Button("Forget Saved Devices") { clearSavedDevices() }
                             .foregroundColor(.red).controlSize(.small)
                     }
