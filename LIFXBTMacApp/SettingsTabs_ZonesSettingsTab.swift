@@ -41,6 +41,7 @@ struct ZonesSettingsTab: View {
         var lowPercent:  Int    // lower threshold as integer percent
         var highPercent: Int?   // nil for the last zone (no upper bound)
         var paletteIndex: Int
+        var effect:      ZoneEffect
     }
 
     // MARK: Body
@@ -87,6 +88,7 @@ struct ZonesSettingsTab: View {
                             Text("Low %")  .frame(width: 70,  alignment: .leading)
                             Text("High %") .frame(width: 70,  alignment: .leading)
                             Text("Color")  .frame(width: 160, alignment: .leading)
+                            Text("Effect") .frame(width: 100, alignment: .leading)
                             Text("Preview").frame(width: 40,  alignment: .center)
                         }
                         .font(.caption).foregroundColor(.secondary)
@@ -146,6 +148,16 @@ struct ZonesSettingsTab: View {
                                     .help("LIFX light color for this zone.")
                                     .onChange(of: zone.paletteIndex) { _, _ in saveCustomZones() }
 
+                                    // Effect picker (multizone lights only)
+                                    Picker("", selection: $zone.effect) {
+                                        ForEach(ZoneEffect.allCases) { e in
+                                            Label(e.rawValue, systemImage: e.symbolName).tag(e)
+                                        }
+                                    }
+                                    .frame(width: 95)
+                                    .help("Light effect while in this zone. Flame only applies to multizone devices (Neon / Lightstrip).")
+                                    .onChange(of: zone.effect) { _, _ in saveCustomZones() }
+
                                 } else {
                                     // Read-only display
                                     Text(zone.label).frame(width: 110, alignment: .leading).padding(.trailing, 10)
@@ -157,6 +169,10 @@ struct ZonesSettingsTab: View {
                                         .frame(width: 60, alignment: .leading).padding(.trailing, 10)
                                     Text(ZwiftZonePalette.colors[zone.paletteIndex].name)
                                         .frame(width: 150, alignment: .leading)
+                                    Label(zone.effect.rawValue, systemImage: zone.effect.symbolName)
+                                        .font(.caption2)
+                                        .foregroundColor(zone.effect == .none ? .secondary : .orange)
+                                        .frame(width: 95, alignment: .leading)
                                 }
 
                                 // Color preview dot
@@ -204,7 +220,8 @@ struct ZonesSettingsTab: View {
                 label:        z.label,
                 lowPercent:   Int((z.low * 100).rounded()),
                 highPercent:  z.high.map { Int(($0 * 100).rounded()) },
-                paletteIndex: z.paletteIndex
+                paletteIndex: z.paletteIndex,
+                effect:       z.effect
             )
         }
     }
@@ -228,7 +245,8 @@ struct ZonesSettingsTab: View {
                 label:        ez.label,
                 low:          Double(ez.lowPercent) / 100.0,
                 high:         ez.highPercent.map { Double($0) / 100.0 },
-                paletteIndex: ez.paletteIndex
+                paletteIndex: ez.paletteIndex,
+                effect:       ez.effect
             )
         }
         store.saveCustomZones(persisted)

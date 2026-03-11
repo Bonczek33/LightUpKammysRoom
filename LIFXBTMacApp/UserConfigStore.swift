@@ -51,6 +51,7 @@ struct PersistedZone: Codable, Hashable {
     var low: Double
     var high: Double?
     var paletteIndex: Int
+    var effect: ZoneEffect = .none   // additive — old saves decode to .none automatically
 }
 
 struct SavedLightEntry: Codable, Hashable {
@@ -239,7 +240,7 @@ final class UserConfigStore: ObservableObject {
     /// Active zone list — custom if configured, otherwise Zwift defaults.
     var activeZones: [Zone] {
         guard let cz = customZones, cz.count == 6 else { return ZoneDefs.zones }
-        return cz.map { Zone(id: $0.id, name: $0.name, low: $0.low, high: $0.high, paletteIndex: $0.paletteIndex, label: $0.label) }
+        return cz.map { Zone(id: $0.id, name: $0.name, low: $0.low, high: $0.high, paletteIndex: $0.paletteIndex, label: $0.label, effect: $0.effect) }
     }
 
     // MARK: - Profile

@@ -646,6 +646,8 @@ struct LIFXPanel: View {
                     alias: vm.aliasByID[light.id] ?? "",
                     isSelected: vm.selectedIDs.contains(light.id),
                     isPoweredOn: vm.powerByID[light.id],
+                    wifiSignalDBm: vm.wifiSignalDBmByID[light.id],
+                    firmware: vm.firmwareByID[light.id],
                     onToggleSelect: { vm.toggleSelection(for: light) },
                     onAliasChanged: { newAlias in
                         vm.setAlias(lightID: light.id, alias: newAlias)

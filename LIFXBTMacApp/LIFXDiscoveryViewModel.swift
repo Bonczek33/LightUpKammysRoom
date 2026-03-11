@@ -24,6 +24,19 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     @Published private(set) var deviceTypeByID: [String: LIFXDeviceType] = [:]
     @Published private(set) var zoneCountByID:  [String: Int] = [:]
 
+    // Per-zone color state for multizone devices (Neon / Lightstrip).
+    // Populated by the polling loop via GetColorZones (502).
+    // Use this in preference to colorByID for multizone lights — it reflects
+    // what the hardware is actually showing, not just what we last sent.
+    @Published private(set) var zoneColorsByID: [String: [LIFXColor]] = [:]
+
+    // Wi-Fi signal strength in dBm, refreshed every polling cycle.
+    // nil = not yet polled or device did not respond to GetWifiInfo.
+    @Published private(set) var wifiSignalDBmByID: [String: Int] = [:]
+
+    // Firmware version, populated once during probeDeviceType.
+    @Published private(set) var firmwareByID: [String: LIFXLanControl.FirmwareVersion] = [:]
+
     // Local aliases (stored on Mac, not on bulb)
     @Published var aliasByID: [String: String] = [:]
 
@@ -41,6 +54,9 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     @Published private(set) var identifyingLightID: String? = nil
     @Published private(set) var identifyingIndex: Int? = nil
     private var identifyTask: Task<Void, Never>?
+
+    // Tracks which multizone lights are currently running a firmware effect (MOVE).
+    private var effectActiveIDs: Set<String> = []
 
     private func isSelected(_ lightID: String) -> Bool { selectedIDs.contains(lightID) }
 
@@ -67,6 +83,9 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         powerByID.removeAll()
         colorByID.removeAll()
         brightnessByID.removeAll()
+        zoneColorsByID.removeAll()
+        wifiSignalDBmByID.removeAll()
+        firmwareByID.removeAll()
 
         for (_, t) in brightnessDebounce { t.cancel() }
         brightnessDebounce.removeAll()
@@ -285,7 +304,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     }
 
     // Manual / Auto palette index apply (0..6)
-    func applyPaletteIndexToSelected(_ paletteIndex: Int, durationMs: UInt32, brightness: UInt16? = nil) {
+    func applyPaletteIndexToSelected(_ paletteIndex: Int, durationMs: UInt32, brightness: UInt16? = nil, quiet: Bool = false) {
         let palette = ZwiftZonePalette.colors
         let safe = max(0, min(palette.count - 1, paletteIndex))
 
@@ -293,6 +312,12 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         guard !selected.isEmpty else { return }
 
         for light in selected {
+            // Skip lights whose device type hasn't been probed yet to avoid
+            // sending SetColor to a multizone device that needs SetExtendedColorZones.
+            guard deviceTypeByID[light.id] != nil else {
+                print("⏳ [LIFX] \(light.label) — device type not yet known, skipping command")
+                continue
+            }
             let bri = brightness ?? brightnessByID[light.id] ?? 32768
             let c = makeColorFromPalette(index: safe, bri: bri)
             let dt    = deviceTypeByID[light.id] ?? .bulb
@@ -302,12 +327,200 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                                      deviceType: dt, zoneCount: zones, durationMs: durationMs)
             colorByID[light.id] = c
             if let brightness { brightnessByID[light.id] = brightness }
+            // SetExtendedColorZones cancels any running firmware effect on multizone devices.
+            // Clear effectActiveIDs so setFlameEffect re-sends the effect on the next tick.
+            if dt.isMultizone { effectActiveIDs.remove(light.id) }
         }
     }
 
-    func applyAutoPaletteIndexToSelected(_ paletteIndex: Int, durationMs: UInt32, brightness: UInt16? = nil) {
-        applyPaletteIndexToSelected(paletteIndex, durationMs: durationMs, brightness: brightness)
+    func applyAutoPaletteIndexToSelected(_ paletteIndex: Int, durationMs: UInt32, brightness: UInt16? = nil, quiet: Bool = false) {
+        applyPaletteIndexToSelected(paletteIndex, durationMs: durationMs, brightness: brightness, quiet: quiet)
     }
+
+    /// Returns the zone count for the first selected multizone light, or nil.
+    func zoneCountForSelected() -> Int? {
+        lights.first { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+              .flatMap { zoneCountByID[$0.id] }
+    }
+
+    /// Sends a per-zone colour array creating a comet sweep effect.
+    /// Head zone = zone colour at full brightness; tail decays exponentially.
+    func setCometEffect(paletteIndex: Int, zoneCount: Int, headPosition: Double) {
+        let palette = ZwiftZonePalette.colors
+        let p = palette[max(0, min(palette.count - 1, paletteIndex))]
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = []
+            for i in 0..<min(zones, 82) {
+                // Distance behind the head (wrapping)
+                var dist = fmod(Double(i) - headPosition + Double(zones), Double(zones))
+                if dist > Double(zones) / 2 { dist = Double(zones) - dist } // shortest arc
+                let decay = exp(-dist * 0.28)  // tail length ~10 zones
+                let bri = UInt16(max(0.03, decay) * 65535)
+                // Head zone gets boosted white-shifted (higher kelvin feel via reduced sat)
+                let sat = dist < 2 ? UInt16(Double(p.satU16) * max(0.3, 1.0 - (2 - dist) * 0.35)) : p.satU16
+                colors.append((p.hueU16, sat, bri, p.kelvin))
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    /// Sends a per-zone colour array creating a rolling rainbow across the strip.
+    /// Each zone gets a hue offset from the base, creating a full colour wheel spread.
+    func setRainbowEffect(baseHueU16: UInt16, zoneCount: Int, offset: Double) {
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = []
+            for i in 0..<min(zones, 82) {
+                // Spread a full hue rotation across the strip, shifted by offset each tick
+                let hueShift = (Double(i) / Double(zones) + offset)
+                let hueU16 = UInt16((fmod(hueShift, 1.0)) * 65535)
+                colors.append((hueU16, 65535, 52428, 3500))  // full sat, ~80% bri, neutral kelvin
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    // MARK: - Software effect helpers (new)
+
+    /// Police: left half red, right half blue (or flipped). Hard cut, no duration.
+    func setPoliceEffect(zoneCount: Int, flip: Bool) {
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            let mid = zones / 2
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = []
+            for i in 0..<min(zones, 82) {
+                let isLeft = i < mid
+                // red = hue 0 (0x0000), blue = hue 170/360 * 65535 ≈ 0x6200
+                let hue: UInt16 = (isLeft != flip) ? 0 : 0x6200
+                colors.append((hue, 65535, 65535, 3500))
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    /// Lava: brightness blobs drift along the strip at the palette colour's hue.
+    func setLavaEffect(paletteIndex: Int, zoneCount: Int,
+                       blobs: [(pos: Double, size: Double, speed: Double)]) {
+        let palette = ZwiftZonePalette.colors
+        let p = palette[max(0, min(palette.count - 1, paletteIndex))]
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            var brightness = [Double](repeating: 0.05, count: min(zones, 82))
+            for blob in blobs {
+                for i in 0..<brightness.count {
+                    let dist = min(abs(Double(i) - blob.pos),
+                                   abs(Double(i) - blob.pos + Double(zones)),
+                                   abs(Double(i) - blob.pos - Double(zones)))
+                    let contrib = max(0, 1.0 - (dist / (blob.size * 0.5)))
+                    brightness[i] = min(1.0, brightness[i] + contrib * contrib)  // smooth falloff
+                }
+            }
+            let colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = brightness.map { bri in
+                (p.hueU16, p.satU16, UInt16(bri * 65535), p.kelvin)
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    /// Lightning: dark background with bright white spikes at strike zones.
+    func setLightningEffect(paletteIndex: Int, zoneCount: Int,
+                            strikes: [(zone: Int, bri: Double)]) {
+        let palette = ZwiftZonePalette.colors
+        let p = palette[max(0, min(palette.count - 1, paletteIndex))]
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] =
+                Array(repeating: (p.hueU16, p.satU16, 3277, p.kelvin), count: min(zones, 82))
+            for strike in strikes {
+                guard strike.zone < colors.count else { continue }
+                let bri = UInt16(min(1.0, strike.bri) * 65535)
+                // White flash: desaturate toward white at full brightness
+                let sat = UInt16(Double(p.satU16) * (1.0 - strike.bri * 0.85))
+                colors[strike.zone] = (p.hueU16, sat, bri, 6500)  // 6500K = cool white
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    /// VU meter: fill strip from zone 0 proportional to `fillRatio`. Lit zones = full colour,
+    /// unlit zones = 5% brightness dim. Gives a classic level-meter look.
+    func setVuMeterEffect(paletteIndex: Int, zoneCount: Int, fillRatio: Double) {
+        let palette = ZwiftZonePalette.colors
+        let p = palette[max(0, min(palette.count - 1, paletteIndex))]
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            let fillCount = Int((Double(zones) * fillRatio).rounded())
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = []
+            for i in 0..<min(zones, 82) {
+                if i < fillCount {
+                    // Colour gradient: green→yellow→red as fill increases
+                    let hueShift = (1.0 - fillRatio) * 0.33   // 0.33=green, 0=red
+                    let hue = UInt16(fmod(hueShift, 1.0) * 65535)
+                    colors.append((hue, 65535, 52428, p.kelvin))
+                } else {
+                    colors.append((p.hueU16, p.satU16, 3277, p.kelvin))  // dim
+                }
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
+        }
+    }
+
+    // MARK: - Zone effects
+
+    /// Starts or stops the firmware MOVE effect on all selected multizone lights.
+    /// `paletteColor` is used to pre-paint a brightness gradient so the scroll is visible.
+    /// Pulse (.pulse) is a software effect driven by the ACC tick — it never calls here.
+    /// Idempotent via effectActiveIDs; probe-race safe (skips if deviceType unknown).
+    func setZoneEffect(_ effect: ZoneEffect, active: Bool, paletteColor: LIFXColor? = nil) {
+        let selected = lights.filter { selectedIDs.contains($0.id) }
+        for light in selected {
+            let knownType = deviceTypeByID[light.id]
+            if active {
+                guard let dt = knownType, dt.isMultizone else { continue }
+                guard !effectActiveIDs.contains(light.id) else { continue }
+                let zones = zoneCountByID[light.id] ?? 60
+                switch effect {
+                case .moveToward, .moveAway:
+                    // LIFX LAN spec: direction is the SECOND parameter field (bytes 4-7).
+                    // 0 = TOWARDS (toward zone 0), 1 = AWAY (toward max zone).
+                    let dir: UInt32 = effect == .moveToward ? 0 : 1
+                    if let c = paletteColor {
+                        control.setExtendedColorZonesGradient(ip: light.ip, targetHex: light.id,
+                                                              color: c, zoneCount: zones,
+                                                              reversed: false)
+                    }
+                    control.setMultizoneEffect(ip: light.ip, targetHex: light.id, effect: .move,
+                                               speedMs: 3000, parameter: dir)
+                case .none, .breathe, .pulse, .strobe, .comet, .rainbow,
+                     .police, .heartbeat, .lava, .lightning, .vuMeter:
+                    break  // software effects are driven by the ACC tick loop; never reach here
+                }
+                effectActiveIDs.insert(light.id)
+                print("\u{2728} [LIFX] \(light.label) effect \(effect.rawValue) ON")
+                // Readback: verify device actually accepted the effect
+                let lightIP = light.ip; let lightID = light.id; let lightLabel = light.label
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)  // 600ms — after retransmits settle
+                    await control.getMultiZoneEffect(ip: lightIP, targetHex: lightID)
+                    print("✨ [LIFX] \(lightLabel) readback done")
+                }
+            } else {
+                guard effectActiveIDs.contains(light.id) else { continue }
+                control.stopMultizoneEffect(ip: light.ip, targetHex: light.id)
+                effectActiveIDs.remove(light.id)
+                print("\u{2728} [LIFX] \(light.label) effect OFF")
+            }
+        }
+    }
+
+
 
     private func makeColorFromPalette(index: Int, bri: UInt16) -> LIFXColor {
         let palette = ZwiftZonePalette.colors
@@ -321,10 +534,11 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         )
     }
 
-    // Polling (read-only)
+    // MARK: - Polling
+
     private func startPollingAllLights(everySeconds: Double) {
         pollTask?.cancel()
-        pollTask = Task { [weak self] in
+        pollTask = Task { @MainActor [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
                 await self.refreshStates(forLights: self.lights)
@@ -333,9 +547,13 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         }
     }
 
+    /// Polling loop: refresh power/color state for all lights.
+    /// For multizone devices, also read per-zone colors and Wi-Fi signal.
     private func refreshStates(forLights lights: [LIFXLight]) async {
         for light in lights {
             if Task.isCancelled { return }
+
+            // Basic state (power + color) — works for all device types
             if let state = await control.getLightState(ip: light.ip, targetHex: light.id, timeoutSeconds: 1.0) {
                 powerByID[light.id] = state.powerOn
                 colorByID[light.id] = state.color
@@ -343,9 +561,28 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                     brightnessByID[light.id] = state.color.briU16
                 }
             }
+
+            // Multizone: read actual per-zone colors so colorByID stays accurate
+            // even if another app (e.g. LIFX app) changed the strip mid-session.
+            if (deviceTypeByID[light.id] ?? .bulb).isMultizone,
+               let zoneCount = zoneCountByID[light.id], zoneCount > 0 {
+                if let zoneColors = await control.getZoneColors(
+                    ip: light.ip, targetHex: light.id, zoneCount: zoneCount, timeoutSeconds: 1.5) {
+                    zoneColorsByID[light.id] = zoneColors
+                    // Keep colorByID in sync with zone 0 as a representative value
+                    colorByID[light.id] = zoneColors[0]
+                }
+            }
+
+            // Wi-Fi signal — polled every cycle so the UI can warn about weak links
+            if let dBm = await control.getWifiSignalDBm(ip: light.ip, targetHex: light.id, timeoutSeconds: 1.0) {
+                wifiSignalDBmByID[light.id] = dBm
+            }
         }
     }
-    
+
+    // MARK: - Apply explicit HSB (raw)
+
     // Apply explicit HSB (raw) to selected lights, preserving each light's current brightness setting
     func applyExplicitHSKToSelected(hueU16: UInt16, satU16: UInt16, kelvin: UInt16, durationMs: UInt32) {
         let selected = lights.filter { selectedIDs.contains($0.id) }
@@ -373,17 +610,24 @@ final class LIFXDiscoveryViewModel: ObservableObject {
     // MARK: - Device type probing
 
     /// Sends GetVersion (type 32) and maps the product ID to LIFXDeviceType.
-    /// Updates deviceTypeByID and zoneCountByID on @MainActor.
+    /// Also fetches firmware version (GetHostFirmware) in parallel.
+    /// Updates deviceTypeByID, zoneCountByID, firmwareByID on @MainActor.
     private func probeDeviceType(_ light: LIFXLight) async {
         guard let (dt, zc, label) = await control.getDeviceTypeAndZoneCount(ip: light.ip, targetHex: light.id) else {
             print("🔍 [LIFX] \(light.ip) — no StateVersion response, defaulting to Bulb")
             await MainActor.run { self.deviceTypeByID[light.id] = .bulb }
             return
         }
-        print("🔍 [LIFX] \(light.ip) -> \(dt) zones=\(zc) label='\(label ?? "—")'")
+
+        // Fetch firmware version alongside the device type probe — one extra round trip
+        // on first discovery; result is cached in firmwareByID for the session.
+        let fw = await control.getFirmwareVersion(ip: light.ip, targetHex: light.id)
+
+        print("🔍 [LIFX] \(light.ip) -> \(dt) zones=\(zc) label='\(label ?? "—")' fw=\(fw?.description ?? "?")")
         await MainActor.run {
             self.deviceTypeByID[light.id] = dt
             self.zoneCountByID[light.id]  = zc
+            if let fw { self.firmwareByID[light.id] = fw }
             // Sync deviceType, zoneCount, and label back into the lights array
             if let idx = self.lights.firstIndex(where: { $0.id == light.id }) {
                 self.lights[idx].deviceType = dt
@@ -395,5 +639,4 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             }
         }
     }
-
 }

@@ -54,6 +54,10 @@ struct LightRow: View {
     let isSelected: Bool
     let isPoweredOn: Bool?
 
+    // Extended info — pass nil while not yet available
+    let wifiSignalDBm: Int?
+    let firmware: LIFXLanControl.FirmwareVersion?
+
     let onToggleSelect: () -> Void
     let onAliasChanged: (String) -> Void
 
@@ -70,8 +74,14 @@ struct LightRow: View {
                 // Power on/off indicator
                 PowerIndicator(isPoweredOn: isPoweredOn)
 
-                // Device type indicator — always shown, mirrors power indicator style
+                // Device type indicator — mirrors power indicator style
                 DeviceTypeIndicator(deviceType: light.deviceType)
+
+                // Wi-Fi signal strength (polled every 2 s by LIFXDiscoveryViewModel)
+                WifiSignalIndicator(dBm: wifiSignalDBm)
+
+                // Firmware version + update warning for multizone lights below fw 3.90
+                FirmwareBadge(firmware: firmware, deviceType: light.deviceType)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(displayName)
@@ -132,6 +142,118 @@ struct LightRow: View {
     }
 }
 
+// MARK: - Wi-Fi Signal Indicator
+
+/// Shows a 0–4 bar Wi-Fi signal strength pill for a LIFX light.
+/// dBm → bar count mapping mirrors LIFXLanControl.wifiBarCount(dBm:).
+struct WifiSignalIndicator: View {
+    /// Raw dBm value from LIFXDiscoveryViewModel.wifiSignalDBmByID.
+    /// Pass nil while the first poll hasn't completed yet.
+    let dBm: Int?
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: iconName)
+                .font(.caption)
+                .foregroundColor(iconColor)
+            if let dBm {
+                Text("\(dBm) dBm")
+                    .font(.caption2)
+                    .foregroundColor(iconColor)
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(iconColor.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .help(tooltip)
+    }
+
+    private var barCount: Int {
+        guard let dBm else { return -1 }
+        return LIFXLanControl.wifiBarCount(dBm: dBm)
+    }
+
+    private var iconName: String {
+        switch barCount {
+        case -1:    return "wifi.slash"
+        case 0:     return "wifi.exclamationmark"
+        default:    return "wifi"
+        }
+    }
+
+    private var iconColor: Color {
+        switch barCount {
+        case -1:    return .secondary.opacity(0.5)
+        case 0:     return .red
+        case 1:     return .red
+        case 2:     return .orange
+        case 3:     return .yellow
+        default:    return .green
+        }
+    }
+
+    private var tooltip: String {
+        guard let dBm else { return "Wi-Fi signal: not yet measured." }
+        switch barCount {
+        case 0:  return "Very weak signal (\(dBm) dBm) — commands may be dropped."
+        case 1:  return "Weak signal (\(dBm) dBm) — occasional missed commands likely."
+        case 2:  return "Fair signal (\(dBm) dBm) — should work reliably."
+        case 3:  return "Good signal (\(dBm) dBm)."
+        default: return "Excellent signal (\(dBm) dBm)."
+        }
+    }
+}
+
+// MARK: - Firmware Badge
+
+/// Shows the firmware version and a warning when it is below the recommended
+/// minimum for multizone devices (fw 3.90 — below this, non-zero durationMs on
+/// SetExtendedColorZones triggers the zone-sweep rendering bug).
+struct FirmwareBadge: View {
+    let firmware: LIFXLanControl.FirmwareVersion?
+    let deviceType: LIFXDeviceType
+
+    private static let minMultizoneFW = LIFXLanControl.FirmwareVersion(major: 3, minor: 90)
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: needsUpdate ? "exclamationmark.triangle.fill" : "cpu")
+                .font(.caption)
+                .foregroundColor(badgeColor)
+            let fwLabel: String = firmware.map { "fw \($0)" } ?? "fw ?"
+            Text(fwLabel)
+                .font(.caption2)
+                .foregroundColor(badgeColor)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(badgeColor.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .help(tooltip)
+    }
+
+    private var needsUpdate: Bool {
+        guard deviceType.isMultizone, let fw = firmware else { return false }
+        return fw.major < Self.minMultizoneFW.major ||
+               (fw.major == Self.minMultizoneFW.major && fw.minor < Self.minMultizoneFW.minor)
+    }
+
+    private var badgeColor: Color {
+        if firmware == nil  { return .secondary.opacity(0.5) }
+        if needsUpdate      { return .orange }
+        return .secondary
+    }
+
+    private var tooltip: String {
+        guard let fw = firmware else { return "Firmware version not yet read." }
+        if needsUpdate {
+            return "Firmware \(fw) is below the recommended minimum (\(Self.minMultizoneFW)) for multizone devices. Update via the LIFX app to fix the zone-colour transition issue."
+        }
+        return "Firmware version \(fw)."
+    }
+}
+
 // MARK: - Device Type Indicator
 
 /// Shows the device form factor (Bulb / Lightstrip / Neon) using the same
@@ -141,10 +263,10 @@ struct DeviceTypeIndicator: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            Image(systemName: iconName)
+            Image(systemName: deviceType.symbolName)
                 .font(.caption)
                 .foregroundColor(indicatorColor)
-            Text(label)
+            Text(deviceType.displayName)
                 .font(.caption2)
                 .foregroundColor(indicatorColor)
         }
@@ -155,17 +277,7 @@ struct DeviceTypeIndicator: View {
         .help(tooltip)
     }
 
-    private var iconName: String {
-        deviceType.symbolName
-    }
-
-    private var label: String {
-        deviceType.displayName
-    }
-
-    private var indicatorColor: Color {
-        deviceType.badgeColor
-    }
+    private var indicatorColor: Color { deviceType.badgeColor }
 
     private var tooltip: String {
         switch deviceType {
@@ -178,6 +290,8 @@ struct DeviceTypeIndicator: View {
         }
     }
 }
+
+// MARK: - LED Dot
 
 struct LEDDot: View {
     let fill: Color
@@ -192,6 +306,8 @@ struct LEDDot: View {
             .accessibilityHidden(true)
     }
 }
+
+// MARK: - Power Indicator
 
 struct PowerIndicator: View {
     let isPoweredOn: Bool?
@@ -213,12 +329,7 @@ struct PowerIndicator: View {
     }
 
     private var iconName: String {
-        switch isPoweredOn {
-        case true:  return "power"
-        case false: return "power"
-        case nil:   return "questionmark.circle"
-        case .some(_): return "questionmark.circle"
-        }
+        isPoweredOn == nil ? "questionmark.circle" : "power"
     }
 
     private var label: String {
@@ -226,7 +337,6 @@ struct PowerIndicator: View {
         case true:  return "ON"
         case false: return "OFF"
         case nil:   return "?"
-        case .some(_): return "?"
         }
     }
 
@@ -235,7 +345,6 @@ struct PowerIndicator: View {
         case true:  return .green
         case false: return .secondary
         case nil:   return .secondary.opacity(0.5)
-        case .some(_): return .secondary.opacity(0.5)
         }
     }
 
@@ -244,7 +353,6 @@ struct PowerIndicator: View {
         case true:  return .green.opacity(0.12)
         case false: return .secondary.opacity(0.08)
         case nil:   return .clear
-        case .some(_): return .clear
         }
     }
 
@@ -253,7 +361,6 @@ struct PowerIndicator: View {
         case true:  return "Light is powered on."
         case false: return "Light is powered off."
         case nil:   return "Power state unknown — no response yet."
-        case .some(_): return "Power state unknown."
         }
     }
 }
