@@ -162,6 +162,15 @@ struct ContentView: View {
         auto.modulateIntensityWithPower = store.modulateIntensityWithPower
         auto.minPowerIntensityPercent = store.minPowerIntensityPercent
         auto.maxPowerIntensityPercent = store.maxPowerIntensityPercent
+        auto.modulateEffectSpeedWithPower = store.modulateEffectSpeedWithPower
+        auto.minEffectSpeedPercent = store.minEffectSpeedPercent
+        auto.maxEffectSpeedPercent = store.maxEffectSpeedPercent
+        auto.inactivityEffectEnabled      = store.inactivityEffectEnabled
+        auto.reminderEffectEnabled        = store.reminderEffectEnabled
+        auto.reminderDays                 = store.reminderDays
+        auto.reminderHour                 = store.reminderHour
+        auto.reminderMinute               = store.reminderMinute
+        auto.excludedFromAutoEffectsIDs   = store.excludedFromAutoEffectsIDs
         auto.activeZones = store.activeZones
 
         lifx.aliasByID = store.aliasesByID

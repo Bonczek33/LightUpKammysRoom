@@ -31,6 +31,21 @@ final class AutoColorController: ObservableObject {
     private var cometPosition: Double = 0      // 0..zoneCount, head position
     private var rainbowOffset: Double = 0      // hue offset 0..1, advances each tick
     private var lavaBlobs: [(pos: Double, size: Double, speed: Double)] = []  // lava blob state
+    private var moveOffset: Double = 0       // software move: current scroll offset in zones
+    // Auto effect state
+    private var autoEffectActive: Bool = false          // true while an auto effect is running
+    private var autoEffectStartedAt: Date? = nil        // when current auto effect began
+    private var autoEffectEffect: ZoneEffect? = nil     // which effect is running
+    private var lastActivityAt: Date = Date()           // last time HR or power was non-zero
+    private var inactivityEffectTriggeredAt: Date? = nil // when inactivity effect last started
+    private var inactivityActivationCount: Int = 0        // how many times inactivity has fired
+    private var reminderLastFiredDate: Date? = nil        // calendar date of last reminder fire
+    private static let inactivityMaxActivations = 2       // after this, turn lights off
+    private static let autoEffectDuration: TimeInterval = 15 * 60   // 15 min
+    private static let inactivityThreshold: TimeInterval = 15 * 60  // idle for 15 min before trigger
+    private static let autoEffectCandidates: [ZoneEffect] = [
+        .breathe, .pulse, .comet, .rainbow, .lava, .swMoveToward, .swMoveAway
+    ]
     private var lightningTimer: Int = 0        // ticks until next lightning strike
     private var lightningZones: [(zone: Int, bri: Double)] = []  // active flash zones
     @Published private(set) var lastInputText: String = "—"
@@ -41,6 +56,16 @@ final class AutoColorController: ObservableObject {
     var dateOfBirth: Date = UserConfigStore.defaultsDOB
     var ftp: Int = 150
     var weightKg: Double = 70.0
+    var modulateEffectSpeedWithPower: Bool = false
+    var minEffectSpeedPercent: Double = 30.0   // speed multiplier at bottom of zone
+    var maxEffectSpeedPercent: Double = 100.0  // speed multiplier at top of zone
+    // Auto effects
+    var inactivityEffectEnabled: Bool = true
+    var reminderEffectEnabled: Bool = true
+    var reminderDays: [Int] = [0,1,2,3,4,5,6]
+    var reminderHour: Int = 6
+    var reminderMinute: Int = 0
+    var excludedFromAutoEffectsIDs: Set<String> = []
     var modulateIntensityWithHR: Bool = false
     var minIntensityPercent: Double = 10.0
     var maxIntensityPercent: Double = 100.0
@@ -226,6 +251,9 @@ final class AutoColorController: ObservableObject {
             }
         }
 
+        // Auto effects (inactivity + reminder) — checked every tick regardless of source
+        await checkAutoEffects()
+
         guard source != .off else {
             if lastInputText != "—" {
                 resetSmoothing()
@@ -340,7 +368,8 @@ final class AutoColorController: ObservableObject {
             // Schedule effect for next tick; send colour this tick
             effectPendingZoneID = zone.effect.isFirmwareEffect ? zone.id : nil
             effectPhase = 0; cometPosition = 0; rainbowOffset = 0
-            lavaBlobs = []; lightningTimer = 0; lightningZones = []  // restart effects on zone entry
+            lavaBlobs = []; lightningTimer = 0; lightningZones = []; moveOffset = 0  // restart effects on zone entry
+            stopAutoEffect()
         }
 
         // Tick N+1: fire the pending firmware effect now that colour has had a tick to arrive
@@ -374,7 +403,7 @@ final class AutoColorController: ObservableObject {
 
             case .breathe:
                 // Slow deep sine wave: ~0.5 Hz, range 40%–100%, durationMs=400
-                effectPhase += 0.13
+                effectPhase += 0.13 * effectSpeedRatio(zone: zone)
                 if effectPhase > 2 * .pi { effectPhase -= 2 * .pi }
                 let bt = (sin(effectPhase) + 1.0) / 2.0
                 let breatheBri = UInt16((0.40 + bt * 0.60) * 65535)
@@ -383,7 +412,7 @@ final class AutoColorController: ObservableObject {
 
             case .pulse:
                 // Fast sine wave: ~2.9 Hz, range 10%–100%, durationMs=200
-                effectPhase += 0.45
+                effectPhase += 0.45 * effectSpeedRatio(zone: zone)
                 if effectPhase > 2 * .pi { effectPhase -= 2 * .pi }
                 let pt = (sin(effectPhase) + 1.0) / 2.0
                 let pulseBri = UInt16((0.10 + pt * 0.90) * 65535)
@@ -391,8 +420,9 @@ final class AutoColorController: ObservableObject {
                 lastSentBrightness = pulseBri; lastSentT = now
 
             case .strobe:
-                // Binary on/off every tick (~4 Hz), durationMs=0 for snap
-                effectPhase += 1.0
+                // Binary on/off. Speed ratio controls flash rate: slow → fewer flips per tick.
+                // Accumulate fractional phase; only flip when it crosses an integer.
+                effectPhase += effectSpeedRatio(zone: zone)
                 let strobeBri: UInt16 = Int(effectPhase) % 2 == 0 ? 65535 : 3277  // 100% / 5%
                 lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 0, brightness: strobeBri, quiet: true)
                 lastSentBrightness = strobeBri; lastSentT = now
@@ -401,7 +431,7 @@ final class AutoColorController: ObservableObject {
                 // Bright head sweeps the strip; zones behind it decay exponentially.
                 // Uses per-zone colour arrays via setExtendedColorZonesEffect.
                 let zoneCount = lifx.zoneCountForSelected() ?? 60
-                cometPosition = fmod(cometPosition + 1.5, Double(zoneCount)) // ~1.5 zones/tick
+                cometPosition = fmod(cometPosition + 1.5 * effectSpeedRatio(zone: zone), Double(zoneCount))
                 lifx.setCometEffect(paletteIndex: zone.paletteIndex,
                                     zoneCount: zoneCount,
                                     headPosition: cometPosition)
@@ -409,22 +439,21 @@ final class AutoColorController: ObservableObject {
 
             case .rainbow:
                 let zoneCount = lifx.zoneCountForSelected() ?? 60
-                rainbowOffset = fmod(rainbowOffset + 0.016, 1.0)
+                rainbowOffset = fmod(rainbowOffset + 0.016 * effectSpeedRatio(zone: zone), 1.0)
                 lifx.setRainbowEffect(baseHueU16: p.hueU16, zoneCount: zoneCount, offset: rainbowOffset)
                 lastSentT = now
 
             case .police:
-                // Alternating red/blue halves, swapping every 2 ticks (~2 Hz)
-                effectPhase += 1.0
+                // Alternating red/blue halves. Speed ratio controls swap rate.
+                effectPhase += effectSpeedRatio(zone: zone)
                 let policeFlip = Int(effectPhase) % 4  // 0,1 = red left; 2,3 = blue left
                 let zoneCount = lifx.zoneCountForSelected() ?? 60
                 lifx.setPoliceEffect(zoneCount: zoneCount, flip: policeFlip < 2)
                 lastSentT = now
 
             case .heartbeat:
-                // Lub-dub double-thump: two quick brightness spikes then pause
-                // Pattern period = 16 ticks (~4s at 250ms) to match resting HR feel
-                effectPhase += 1.0
+                // Lub-dub double-thump. Speed ratio compresses the period at high effort.
+                effectPhase += effectSpeedRatio(zone: zone)
                 let beat = Int(effectPhase) % 16
                 let hbBri: UInt16
                 switch beat {
@@ -448,8 +477,9 @@ final class AutoColorController: ObservableObject {
                          speed: Double.random(in: 0.2...0.6) * (Bool.random() ? 1 : -1))
                     }
                 }
+                let lavaSpeedMult = effectSpeedRatio(zone: zone)
                 lavaBlobs = lavaBlobs.map { b in
-                    let newPos = fmod(b.pos + b.speed + Double(zoneCount), Double(zoneCount))
+                    let newPos = fmod(b.pos + b.speed * lavaSpeedMult + Double(zoneCount), Double(zoneCount))
                     return (pos: newPos, size: b.size, speed: b.speed)
                 }
                 lifx.setLavaEffect(paletteIndex: zone.paletteIndex, zoneCount: zoneCount, blobs: lavaBlobs)
@@ -472,19 +502,35 @@ final class AutoColorController: ObservableObject {
                         let z = (strikeZone + offset + zoneCount) % zoneCount
                         lightningZones.append((zone: z, bri: 1.0))
                     }
-                    lightningTimer = Int.random(in: 3...8)
+                    // Speed ratio compresses the inter-strike interval
+                    let maxWait = max(2, Int(8.0 / effectSpeedRatio(zone: zone)))
+                    lightningTimer = Int.random(in: 2...maxWait)
                 }
                 lifx.setLightningEffect(paletteIndex: zone.paletteIndex,
                                         zoneCount: zoneCount, strikes: lightningZones)
                 lastSentT = now
 
             case .vuMeter:
-                // Fill strip from index 0 proportional to current smoothed ratio.
-                // Zones in the lit region = full zone colour; beyond = very dim.
                 let ratio = smoothedPowerRatioForTick ?? smoothedRatio ?? 0
                 let zoneCount = lifx.zoneCountForSelected() ?? 60
                 lifx.setVuMeterEffect(paletteIndex: zone.paletteIndex,
                                       zoneCount: zoneCount, fillRatio: min(1.0, max(0, ratio)))
+                lastSentT = now
+
+            case .swMoveToward, .swMoveAway:
+                // Software MOVE: shift a brightness gradient by moveOffset each tick.
+                // durationMs=220 (≈tick interval) lets the bulb interpolate between frames
+                // so motion appears smooth despite 4 fps packet rate.
+                let swZoneCount = lifx.zoneCountForSelected() ?? 60
+                let step = 1.5 * effectSpeedRatio(zone: zone)
+                moveOffset = fmod(
+                    moveOffset + (zone.effect == .swMoveToward ? step : -step) + Double(swZoneCount),
+                    Double(swZoneCount)
+                )
+                lifx.setSoftwareMoveEffect(paletteIndex: zone.paletteIndex,
+                                           zoneCount: swZoneCount,
+                                           offset: moveOffset,
+                                           durationMs: 220)
                 lastSentT = now
 
             default:
@@ -630,6 +676,235 @@ final class AutoColorController: ObservableObject {
         let minIntensity = minPowerIntensityPercent / 100.0
         let maxIntensity = maxPowerIntensityPercent / 100.0
         return minIntensity + (zonePositionRatio * (maxIntensity - minIntensity))
+    }
+
+    // MARK: - Auto Effects (Inactivity + Reminder)
+
+    /// Pick a random software effect from the candidates list.
+    private func randomAutoEffect() -> ZoneEffect {
+        Self.autoEffectCandidates.randomElement() ?? .breathe
+    }
+
+    /// Stop any running auto effect and restore the light to idle white.
+    private func stopAutoEffect() {
+        guard autoEffectActive, let lifx else { return }
+        autoEffectActive = false
+        autoEffectStartedAt = nil
+        autoEffectEffect = nil
+        autoEffectPhase = 0; autoEffectCometPos = 0; autoEffectRainbowOffset = 0
+        autoEffectMoveOffset = 0; autoEffectLavaBlobs = []
+        // Restore to neutral white at 50%
+        lifx.applyAutoPaletteIndexToSelected(0, durationMs: 800, brightness: 32767)
+        print("🎨 [AutoEffect] stopped — restored white")
+    }
+
+    /// Drive the currently active auto effect for one tick.
+    private func tickAutoEffect() async {
+        guard autoEffectActive, let effect = autoEffectEffect, let lifx else { return }
+        // Only apply to selected lights that are NOT excluded from auto effects
+        let eligibleIDs = lifx.selectedIDs.filter { !excludedFromAutoEffectsIDs.contains($0) }
+        guard !eligibleIDs.isEmpty else { stopAutoEffect(); return }
+
+        // Stop if duration elapsed
+        if let start = autoEffectStartedAt,
+           Date().timeIntervalSince(start) >= Self.autoEffectDuration {
+            stopAutoEffect()
+            return
+        }
+
+        // Use palette index 0 (neutral white/grey) so auto effects are colour-neutral
+        let paletteIndex = 0
+        let zoneCount = lifx.zoneCountForSelected() ?? 60
+
+        // All effect sends are scoped to eligible (non-excluded) lights only
+        lifx.withSelectedIDs(eligibleIDs) {
+            switch effect {
+            case .breathe:
+                // Full 100% ceiling, near-off floor — maximum visible contrast
+                autoEffectPhase += 0.13
+                if autoEffectPhase > 2 * .pi { autoEffectPhase -= 2 * .pi }
+                let bt = (sin(autoEffectPhase) + 1.0) / 2.0
+                lifx.applyAutoPaletteIndexToSelected(paletteIndex, durationMs: 400,
+                    brightness: UInt16((0.05 + bt * 0.95) * 65535), quiet: true)
+
+            case .pulse:
+                // Full 100% ceiling, near-off floor
+                autoEffectPhase += 0.45
+                if autoEffectPhase > 2 * .pi { autoEffectPhase -= 2 * .pi }
+                let pt = (sin(autoEffectPhase) + 1.0) / 2.0
+                lifx.applyAutoPaletteIndexToSelected(paletteIndex, durationMs: 200,
+                    brightness: UInt16((0.05 + pt * 0.95) * 65535), quiet: true)
+
+            case .comet:
+                autoEffectCometPos = fmod(autoEffectCometPos + 1.5, Double(zoneCount))
+                lifx.setCometEffect(paletteIndex: paletteIndex, zoneCount: zoneCount,
+                                    headPosition: autoEffectCometPos)
+
+            case .rainbow:
+                autoEffectRainbowOffset = fmod(autoEffectRainbowOffset + 0.016, 1.0)
+                let baseHue = UInt16(0.6 * 65535)
+                lifx.setRainbowEffect(baseHueU16: baseHue, zoneCount: zoneCount,
+                                      offset: autoEffectRainbowOffset)
+
+            case .lava:
+                if autoEffectLavaBlobs.isEmpty {
+                    autoEffectLavaBlobs = (0..<5).map { _ in
+                        (pos: Double.random(in: 0..<Double(zoneCount)),
+                         size: Double.random(in: 6...14),
+                         speed: Double.random(in: 0.2...0.6) * (Bool.random() ? 1 : -1))
+                    }
+                }
+                autoEffectLavaBlobs = autoEffectLavaBlobs.map { b in
+                    (pos: fmod(b.pos + b.speed + Double(zoneCount), Double(zoneCount)),
+                     size: b.size, speed: b.speed)
+                }
+                lifx.setLavaEffect(paletteIndex: paletteIndex, zoneCount: zoneCount,
+                                   blobs: autoEffectLavaBlobs)
+
+            case .swMoveToward, .swMoveAway:
+                let step = 1.5
+                autoEffectMoveOffset = fmod(
+                    autoEffectMoveOffset + (effect == .swMoveToward ? step : -step) + Double(zoneCount),
+                    Double(zoneCount)
+                )
+                lifx.setSoftwareMoveEffect(paletteIndex: paletteIndex, zoneCount: zoneCount,
+                                           offset: autoEffectMoveOffset, durationMs: 220)
+
+            default:
+                break
+            }
+        }
+    }
+
+    // Separate phase state for auto effects — independent from zone effect state
+    private var autoEffectPhase: Double = 0
+    private var autoEffectCometPos: Double = 0
+    private var autoEffectRainbowOffset: Double = 0
+    private var autoEffectMoveOffset: Double = 0
+    private var autoEffectLavaBlobs: [(pos: Double, size: Double, speed: Double)] = []
+
+    /// Check and trigger inactivity and reminder auto effects each tick.
+    @MainActor
+    private func checkAutoEffects() async {
+        guard let lifx, !lifx.selectedIDs.isEmpty else { return }
+
+        // IDs eligible for auto effects (selected and not excluded)
+        let eligibleIDs = lifx.selectedIDs.filter { !excludedFromAutoEffectsIDs.contains($0) }
+        guard !eligibleIDs.isEmpty else { return }
+        let anyLightOn = eligibleIDs.contains { lifx.powerByID[$0] == true }
+
+        // Track activity — HR or power non-zero resets inactivity counter
+        let isActive = (activeHR ?? 0) > 0 || (activePower ?? 0) > 0
+        if isActive {
+            lastActivityAt = Date()
+            if inactivityActivationCount > 0 {
+                inactivityActivationCount = 0
+                print("💤 [AutoEffect] activity resumed — inactivity count reset")
+            }
+        }
+
+        // Stop auto effect if all eligible lights turned off externally
+        if autoEffectActive && !anyLightOn {
+            stopAutoEffect()
+            return
+        }
+
+        // If auto effect is running, tick it and return
+        if autoEffectActive {
+            await tickAutoEffect()
+            return
+        }
+
+        let now = Date()
+
+        // ── Reminder check ────────────────────────────────────────────────────
+        // Reminder fires regardless of light state — powers on eligible lights if needed.
+        if reminderEffectEnabled && !isActive {
+            let cal = Calendar.current
+            let comps = cal.dateComponents([.weekday, .hour, .minute], from: now)
+            let weekday = (comps.weekday ?? 1) - 1
+            let hour    = comps.hour   ?? 0
+            let minute  = comps.minute ?? 0
+
+            if reminderDays.contains(weekday) && hour == reminderHour && minute == reminderMinute {
+                let fireKey  = cal.dateComponents([.year,.month,.day,.hour,.minute], from: now)
+                let fireDate = cal.date(from: fireKey) ?? now
+                if reminderLastFiredDate != fireDate {
+                    reminderLastFiredDate = fireDate
+                    // Power on any eligible lights that are currently off
+                    lifx.powerOn(ids: eligibleIDs)
+                    startAutoEffect(reason: "reminder")
+                    return
+                }
+            }
+        }
+
+        // Inactivity only fires when lights are already on
+        guard anyLightOn else { return }
+
+        // ── Inactivity check ─────────────────────────────────────────────────
+        if inactivityEffectEnabled && !isActive {
+            // After max activations, turn off eligible lights instead of running another effect
+            if inactivityActivationCount >= Self.inactivityMaxActivations {
+                print("💤 [AutoEffect] max inactivity activations reached — turning off lights")
+                lifx.withSelectedIDs(eligibleIDs) {
+                    lifx.setPowerForSelected(false)
+                }
+                // Reset so next session can fire again once rider resumes
+                inactivityActivationCount = 0
+                lastActivityAt = Date()   // treat as activity to prevent re-triggering immediately
+                return
+            }
+
+            let idle = now.timeIntervalSince(lastActivityAt)
+            let canFire: Bool
+            if let last = inactivityEffectTriggeredAt {
+                canFire = idle >= Self.inactivityThreshold &&
+                          now.timeIntervalSince(last) >= Self.autoEffectDuration * 2
+            } else {
+                canFire = idle >= Self.inactivityThreshold
+            }
+            if canFire {
+                inactivityEffectTriggeredAt = now
+                inactivityActivationCount += 1
+                startAutoEffect(reason: "inactivity (\(inactivityActivationCount)/\(Self.inactivityMaxActivations))")
+            }
+        }
+    }
+
+    /// Start an auto effect, picking a random eligible effect.
+    private func startAutoEffect(reason: String) {
+        autoEffectEffect = randomAutoEffect()
+        autoEffectActive = true
+        autoEffectStartedAt = Date()
+        print("🎨 [AutoEffect] fired: \(reason) — \(autoEffectEffect!.rawValue)")
+    }
+
+    /// Returns a speed multiplier (0.0–1.0+) based on power position within the current zone.
+    /// At zone bottom → minEffectSpeedPercent/100; at zone top → maxEffectSpeedPercent/100.
+    /// Returns 1.0 if modulation is disabled or no power data is available.
+    private func effectSpeedRatio(zone: Zone) -> Double {
+        guard modulateEffectSpeedWithPower else { return 1.0 }
+        let powerRatio: Double
+        if let r = smoothedPowerRatioForTick {
+            powerRatio = r
+        } else if let r = smoothedRatio {
+            powerRatio = r
+        } else {
+            return 1.0
+        }
+        let clampedRatio = max(0.0, min(2.0, powerRatio))
+        let zonePos: Double
+        if let zoneHigh = zone.high {
+            let span = max(0.000001, zoneHigh - zone.low)
+            zonePos = min(1.0, max(0.0, (clampedRatio - zone.low) / span))
+        } else {
+            let span = max(0.000001, 1.5 - zone.low)
+            zonePos = min(1.0, max(0.0, (clampedRatio - zone.low) / span))
+        }
+        let minS = minEffectSpeedPercent / 100.0
+        let maxS = maxEffectSpeedPercent / 100.0
+        return minS + zonePos * (maxS - minS)
     }
 
     /// Determine if we should send an update to avoid redundant commands.

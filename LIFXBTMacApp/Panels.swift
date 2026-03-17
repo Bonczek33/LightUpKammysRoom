@@ -648,7 +648,17 @@ struct LIFXPanel: View {
                     isPoweredOn: vm.powerByID[light.id],
                     wifiSignalDBm: vm.wifiSignalDBmByID[light.id],
                     firmware: vm.firmwareByID[light.id],
+                    isExcludedFromAutoEffects: store.excludedFromAutoEffectsIDs.contains(light.id),
                     onToggleSelect: { vm.toggleSelection(for: light) },
+                    onToggleAutoEffectExclusion: {
+                        if store.excludedFromAutoEffectsIDs.contains(light.id) {
+                            store.excludedFromAutoEffectsIDs.remove(light.id)
+                        } else {
+                            store.excludedFromAutoEffectsIDs.insert(light.id)
+                        }
+                        store.save()
+                        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+                    },
                     onAliasChanged: { newAlias in
                         vm.setAlias(lightID: light.id, alias: newAlias)
                         store.aliasesByID = vm.aliasByID

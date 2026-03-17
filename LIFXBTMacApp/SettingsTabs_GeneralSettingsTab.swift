@@ -27,6 +27,9 @@ struct GeneralSettingsTab: View {
         store.modulateIntensityWithPower = UserConfigStore.defaultsModulateIntensityWithPower
         store.minPowerIntensityPercent   = UserConfigStore.defaultsMinPowerIntensityPercent
         store.maxPowerIntensityPercent   = UserConfigStore.defaultsMaxPowerIntensityPercent
+        store.modulateEffectSpeedWithPower = false
+        store.minEffectSpeedPercent       = 30.0
+        store.maxEffectSpeedPercent       = 100.0
         store.powerMovingAverageSeconds  = UserConfigStore.defaultsPowerMovingAverageSeconds
         persist()
     }
@@ -82,6 +85,23 @@ struct GeneralSettingsTab: View {
                             .padding(8)
                         }
 
+                        GroupBox(label: Text("Effect Speed Modulation (Power)").font(.subheadline)) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Toggle("Modulate effect speed with power", isOn: $store.modulateEffectSpeedWithPower)
+                                    .toggleStyle(.switch)
+                                    .onChange(of: store.modulateEffectSpeedWithPower) { _, _ in persist() }
+                                    .help("Scales software effect speed based on power position within the current training zone. Higher power = faster effect.")
+                                Text("When enabled, effects like Breathe, Pulse, Comet, and Move speed up as power rises within a zone.")
+                                    .font(.caption).foregroundColor(.secondary)
+                                Divider()
+                                if store.modulateEffectSpeedWithPower {
+                                    speedSliders(min: $store.minEffectSpeedPercent,
+                                                 max: $store.maxEffectSpeedPercent)
+                                }
+                            }
+                            .padding(8)
+                        }
+
                         Divider()
 
                         GroupBox(label: Text("Power Smoothing").font(.subheadline)) {
@@ -130,8 +150,32 @@ struct GeneralSettingsTab: View {
                 Button("Cancel", role: .cancel) {}
                 Button("Reset", role: .destructive) { resetToDefaults() }
             } message: {
-                Text("HR/power intensity modulation and power smoothing will be reset to defaults.")
+                Text("HR/power intensity modulation, effect speed modulation, and power smoothing will be reset to defaults.")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func speedSliders(min: Binding<Double>, max: Binding<Double>) -> some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Min Speed:").frame(width: 120, alignment: .trailing)
+                Slider(value: min, in: 0...300, step: 5).frame(width: 200)
+                    .onChange(of: min.wrappedValue) { _, _ in persist() }
+                    .help("Effect speed at the bottom of a zone (0% = paused, 100% = normal, 300% = triple speed).")
+                Text("\(Int(min.wrappedValue))%")
+                    .font(.caption).foregroundColor(.secondary).frame(width: 40, alignment: .trailing)
+            }
+            HStack {
+                Text("Max Speed:").frame(width: 120, alignment: .trailing)
+                Slider(value: max, in: 0...300, step: 5).frame(width: 200)
+                    .onChange(of: max.wrappedValue) { _, _ in persist() }
+                    .help("Effect speed at the top of a zone (100% = normal, 300% = triple speed).")
+                Text("\(Int(max.wrappedValue))%")
+                    .font(.caption).foregroundColor(.secondary).frame(width: 40, alignment: .trailing)
+            }
+            Text("Effect speed scales from \(Int(min.wrappedValue))% to \(Int(max.wrappedValue))% as power rises through the zone.")
+                .font(.caption).foregroundColor(.secondary).italic()
         }
     }
 

@@ -27,6 +27,16 @@ struct PersistedUserConfig: Codable {
     var modulateIntensityWithPower: Bool?
     var minPowerIntensityPercent: Double?
     var maxPowerIntensityPercent: Double?
+    var modulateEffectSpeedWithPower: Bool?     // effect speed scales with power position within zone
+    var minEffectSpeedPercent: Double?          // speed at bottom of zone (0–100)
+    var maxEffectSpeedPercent: Double?          // speed at top of zone (0–100)
+    // Auto effects
+    var inactivityEffectEnabled: Bool?          // show random effect after idle
+    var reminderEffectEnabled: Bool?            // scheduled reminder effect
+    var reminderDays: [Int]?                    // 0=Sun..6=Sat
+    var reminderHour: Int?                      // 0–23
+    var reminderMinute: Int?                    // 0–59
+    var excludedFromAutoEffectsIDs: [String]?   // light IDs excluded from auto effects
     var btAutoReconnect: Bool?
     var lastHRPeripheralID: String?
     var lastHRPeripheralName: String?
@@ -94,6 +104,16 @@ final class UserConfigStore: ObservableObject {
     @Published var modulateIntensityWithPower: Bool = defaultsModulateIntensityWithPower
     @Published var minPowerIntensityPercent: Double = defaultsMinPowerIntensityPercent
     @Published var maxPowerIntensityPercent: Double = defaultsMaxPowerIntensityPercent
+    @Published var modulateEffectSpeedWithPower: Bool = false
+    @Published var minEffectSpeedPercent: Double = 30.0
+    @Published var maxEffectSpeedPercent: Double = 100.0
+    // Auto effects
+    @Published var inactivityEffectEnabled: Bool = true
+    @Published var reminderEffectEnabled: Bool = true
+    @Published var reminderDays: [Int] = [0,1,2,3,4,5,6]   // daily by default
+    @Published var reminderHour: Int = 6
+    @Published var reminderMinute: Int = 0
+    @Published var excludedFromAutoEffectsIDs: Set<String> = []
     @Published var btAutoReconnect: Bool = defaultsBTAutoReconnect
     @Published var lastHRPeripheralID: String? = nil
     @Published var lastHRPeripheralName: String? = nil
@@ -135,6 +155,15 @@ final class UserConfigStore: ObservableObject {
         modulateIntensityWithPower = d.modulateIntensityWithPower  ?? Self.defaultsModulateIntensityWithPower
         minPowerIntensityPercent = d.minPowerIntensityPercent      ?? Self.defaultsMinPowerIntensityPercent
         maxPowerIntensityPercent = d.maxPowerIntensityPercent      ?? Self.defaultsMaxPowerIntensityPercent
+        modulateEffectSpeedWithPower = d.modulateEffectSpeedWithPower ?? false
+        minEffectSpeedPercent        = d.minEffectSpeedPercent       ?? 30.0
+        maxEffectSpeedPercent        = d.maxEffectSpeedPercent       ?? 100.0
+        inactivityEffectEnabled = d.inactivityEffectEnabled ?? true
+        reminderEffectEnabled   = d.reminderEffectEnabled   ?? true
+        reminderDays            = d.reminderDays            ?? [0,1,2,3,4,5,6]
+        reminderHour            = d.reminderHour            ?? 6
+        reminderMinute          = d.reminderMinute          ?? 0
+        excludedFromAutoEffectsIDs = Set(d.excludedFromAutoEffectsIDs ?? [])
         btAutoReconnect          = d.btAutoReconnect               ?? Self.defaultsBTAutoReconnect
         lastHRPeripheralID       = d.lastHRPeripheralID
         lastHRPeripheralName     = d.lastHRPeripheralName
@@ -177,6 +206,15 @@ final class UserConfigStore: ObservableObject {
             modulateIntensityWithPower: modulateIntensityWithPower,
             minPowerIntensityPercent: minPowerIntensityPercent,
             maxPowerIntensityPercent: maxPowerIntensityPercent,
+            modulateEffectSpeedWithPower: modulateEffectSpeedWithPower,
+            minEffectSpeedPercent: minEffectSpeedPercent,
+            maxEffectSpeedPercent: maxEffectSpeedPercent,
+            inactivityEffectEnabled: inactivityEffectEnabled,
+            reminderEffectEnabled: reminderEffectEnabled,
+            reminderDays: reminderDays,
+            reminderHour: reminderHour,
+            reminderMinute: reminderMinute,
+            excludedFromAutoEffectsIDs: Array(excludedFromAutoEffectsIDs),
             btAutoReconnect: btAutoReconnect,
             lastHRPeripheralID: lastHRPeripheralID,
             lastHRPeripheralName: lastHRPeripheralName,

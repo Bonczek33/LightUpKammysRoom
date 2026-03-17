@@ -195,6 +195,17 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         }
     }
 
+    /// Power on specific lights by ID, regardless of current selectedIDs.
+    /// Used by auto effects (reminder) to turn on lights that may be off.
+    func powerOn(ids: Set<String>, durationMs: UInt32 = 500) {
+        for light in lights where ids.contains(light.id) {
+            guard powerByID[light.id] != true else { continue }
+            control.setPower(ip: light.ip, targetHex: light.id, on: true, durationMs: durationMs)
+            powerByID[light.id] = true
+            print("💡 [LIFX] powered on \(light.label) for auto effect")
+        }
+    }
+
     /// Identify lights one at a time: each light blinks for 5s (1s on, 0.5s off), then the next light starts
     func identifyLights() {
         guard !lights.isEmpty else { return }
@@ -333,6 +344,15 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         }
     }
 
+    /// Run `body` with `selectedIDs` temporarily replaced by `ids`.
+    /// Used by auto effects to restrict output to non-excluded lights.
+    func withSelectedIDs(_ ids: Set<String>, body: () -> Void) {
+        let saved = selectedIDs
+        selectedIDs = ids
+        body()
+        selectedIDs = saved
+    }
+
     func applyAutoPaletteIndexToSelected(_ paletteIndex: Int, durationMs: UInt32, brightness: UInt16? = nil, quiet: Bool = false) {
         applyPaletteIndexToSelected(paletteIndex, durationMs: durationMs, brightness: brightness, quiet: quiet)
     }
@@ -385,6 +405,32 @@ final class LIFXDiscoveryViewModel: ObservableObject {
 
     // MARK: - Software effect helpers (new)
 
+    /// Software MOVE: shifts a triangle-wave brightness gradient along the strip each tick.
+    /// `offset` is in zones (0..<zoneCount). `durationMs` should match the tick interval
+    /// so the bulb interpolates between frames for smooth apparent motion.
+    func setSoftwareMoveEffect(paletteIndex: Int, zoneCount: Int,
+                               offset: Double, durationMs: UInt32) {
+        let palette = ZwiftZonePalette.colors
+        let p = palette[max(0, min(palette.count - 1, paletteIndex))]
+        let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
+        let period: Double = 12   // brightness wave repeats every N zones
+        for light in selected {
+            let zones = zoneCountByID[light.id] ?? zoneCount
+            var colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = []
+            for i in 0..<min(zones, 82) {
+                // Shift zone index by offset, wrap within period
+                let shifted = fmod(Double(i) + offset + Double(zones), Double(zones))
+                let phase = fmod(shifted, period) / period   // 0..1 sawtooth
+                // Triangle wave: bright at 0, dark at 0.5, bright at 1
+                let t = 1.0 - abs(phase - 0.5) * 2.0
+                let bri = UInt16(max(0.04, t * t) * 65535)  // squared for sharper peak
+                colors.append((p.hueU16, p.satU16, bri, p.kelvin))
+            }
+            control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id,
+                                               colors: colors, durationMs: durationMs)
+        }
+    }
+
     /// Police: left half red, right half blue (or flipped). Hard cut, no duration.
     func setPoliceEffect(zoneCount: Int, flip: Bool) {
         let selected = lights.filter { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
@@ -395,7 +441,8 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             for i in 0..<min(zones, 82) {
                 let isLeft = i < mid
                 // red = hue 0 (0x0000), blue = hue 170/360 * 65535 ≈ 0x6200
-                let hue: UInt16 = (isLeft != flip) ? 0 : 0x6200
+                // red = hue 0° (0x0000), blue = hue 240° = 240/360*65535 = 43690 (0xAAAA)
+                let hue: UInt16 = (isLeft != flip) ? 0 : 0xAAAA
                 colors.append((hue, 65535, 65535, 3500))
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
@@ -499,7 +546,8 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                     control.setMultizoneEffect(ip: light.ip, targetHex: light.id, effect: .move,
                                                speedMs: 3000, parameter: dir)
                 case .none, .breathe, .pulse, .strobe, .comet, .rainbow,
-                     .police, .heartbeat, .lava, .lightning, .vuMeter:
+                     .police, .heartbeat, .lava, .lightning, .vuMeter,
+                     .swMoveToward, .swMoveAway:
                     break  // software effects are driven by the ACC tick loop; never reach here
                 }
                 effectActiveIDs.insert(light.id)

@@ -412,11 +412,12 @@ final class LIFXLanControl {
     /// `colors` is a flat array of (hue, sat, bri, kelvin) tuples, one per zone.
     /// Used by software effects (comet, rainbow) that need per-zone control.
     func setExtendedColorZonesArray(ip: String, targetHex: String,
-                                    colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)]) {
+                                    colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)],
+                                    durationMs: UInt32 = 0) {
         guard let target = dataFromHex8(targetHex), !colors.isEmpty else { return }
         let activeCount = min(colors.count, 82)
         var payload = Data()
-        payload.append(withBytes(UInt32(0).littleEndian))    // duration = 0
+        payload.append(withBytes(durationMs.littleEndian))   // duration (ms)
         payload.append(UInt8(1))                             // apply = APPLY
         payload.append(withBytes(UInt16(0).littleEndian))    // zone_index = 0
         payload.append(UInt8(activeCount))                   // colors_count

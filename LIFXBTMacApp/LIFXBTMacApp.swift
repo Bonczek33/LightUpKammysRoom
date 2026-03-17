@@ -143,6 +143,9 @@ struct SettingsView: View {
             ZonesSettingsTab()
                 .tabItem { Label("Zones", systemImage: "chart.bar.fill") }
 
+            AutoEffectsSettingsTab()
+                .tabItem { Label("Auto Effects", systemImage: "sparkles") }
+
             AboutSettingsTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }

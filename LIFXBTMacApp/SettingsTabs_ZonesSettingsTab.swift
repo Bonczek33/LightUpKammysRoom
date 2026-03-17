@@ -151,11 +151,13 @@ struct ZonesSettingsTab: View {
                                     // Effect picker (multizone lights only)
                                     Picker("", selection: $zone.effect) {
                                         ForEach(ZoneEffect.allCases) { e in
-                                            Label(e.rawValue, systemImage: e.symbolName).tag(e)
+                                            Label(e.rawValue, systemImage: e.symbolName)
+                                                .tag(e)
+                                                .help(e.description)
                                         }
                                     }
                                     .frame(width: 95)
-                                    .help("Light effect while in this zone. Flame only applies to multizone devices (Neon / Lightstrip).")
+                                    .help(zone.effect.description)
                                     .onChange(of: zone.effect) { _, _ in saveCustomZones() }
 
                                 } else {

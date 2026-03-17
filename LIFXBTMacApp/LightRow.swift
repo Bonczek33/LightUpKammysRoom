@@ -58,7 +58,9 @@ struct LightRow: View {
     let wifiSignalDBm: Int?
     let firmware: LIFXLanControl.FirmwareVersion?
 
+    let isExcludedFromAutoEffects: Bool
     let onToggleSelect: () -> Void
+    let onToggleAutoEffectExclusion: () -> Void
     let onAliasChanged: (String) -> Void
 
     @State private var aliasDraft: String = ""
@@ -70,6 +72,25 @@ struct LightRow: View {
                     .toggleStyle(.checkbox)
                     .labelsHidden()
                     .help("Select this light to include it in auto color control.")
+
+                // Auto effects exclusion checkbox
+                Toggle("", isOn: .init(
+                    get: { !isExcludedFromAutoEffects },
+                    set: { _ in onToggleAutoEffectExclusion() }
+                ))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(isExcludedFromAutoEffects
+                    ? "Auto effects (inactivity, reminder) are disabled for this light. Click to enable."
+                    : "Auto effects (inactivity, reminder) are enabled for this light. Click to disable.")
+                .opacity(isExcludedFromAutoEffects ? 0.4 : 1.0)
+                .overlay(
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 8))
+                        .foregroundColor(isExcludedFromAutoEffects ? .secondary : .accentColor)
+                        .offset(x: 10, y: -8)
+                        .allowsHitTesting(false)
+                )
 
                 // Power on/off indicator
                 PowerIndicator(isPoweredOn: isPoweredOn)

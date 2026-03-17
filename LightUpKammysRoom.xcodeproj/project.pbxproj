@@ -37,8 +37,8 @@
 		C268375E2F3FA94A00A43AE6 /* ChartsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375D2F3FA94A00A43AE6 /* ChartsPanel.swift */; };
 		C268376E2F3FFC8C00A43AE6 /* ChartsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268375F2F3FA95F00A43AE6 /* ChartsViewModel.swift */; };
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
-		C29ED3312F44C3CD0002B4BE /* BuildNumber.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */; };
 		C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */; };
+		C2C7C7372F67BB9600076FDD /* AutoEffectsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C7C7362F67BB9600076FDD /* AutoEffectsSettingsTab.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,6 +96,7 @@
 		C283CE772F3EB7D800EE0F4D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = BuildNumber.xcconfig; sourceTree = "<group>"; };
 		C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ANTPlusSensorViewModel.swift; sourceTree = "<group>"; };
+		C2C7C7362F67BB9600076FDD /* AutoEffectsSettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoEffectsSettingsTab.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +147,7 @@
 		96253C7C2F32857A00E17BB2 /* LIFXBTMacApp */ = {
 			isa = PBXGroup;
 			children = (
+				C2C7C7362F67BB9600076FDD /* AutoEffectsSettingsTab.swift */,
 				C24968382F580BE400DC8B79 /* BluetoothSettingsTab.swift */,
 				C252B5A92F48C6230011BAAD /* SettingsTabs_UserProfileTab.swift */,
 				C252B5A72F48C6140011BAAD /* SettingsTabs_ProfileSettingsTab.swift */,
@@ -271,7 +273,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1420;
-				LastUpgradeCheck = 2620;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					96253C792F32857A00E17BB2 = {
 						CreatedOnToolsVersion = 14.2;
@@ -313,7 +315,6 @@
 			files = (
 				96253C852F32857B00E17BB2 /* Preview Assets.xcassets in Resources */,
 				96253C822F32857B00E17BB2 /* Assets.xcassets in Resources */,
-				C29ED3312F44C3CD0002B4BE /* BuildNumber.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -379,6 +380,7 @@
 				96253CB52F3285A800E17BB2 /* LIFXLanControl.swift in Sources */,
 				96253CCA2F32936D00E17BB2 /* WindowSizing.swift in Sources */,
 				96253CBF2F3285A800E17BB2 /* UserConfigStore.swift in Sources */,
+				C2C7C7372F67BB9600076FDD /* AutoEffectsSettingsTab.swift in Sources */,
 				C24968392F580BE400DC8B79 /* BluetoothSettingsTab.swift in Sources */,
 				96253CC72F3286A700E17BB2 /* ContentView.swift in Sources */,
 				C252B5A82F48C6140011BAAD /* SettingsTabs_ProfileSettingsTab.swift in Sources */,

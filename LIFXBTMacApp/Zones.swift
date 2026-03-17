@@ -20,8 +20,10 @@ import Foundation
 ///   rainbow  — hue rotates across all zones like a rolling colour wheel
 enum ZoneEffect: String, Codable, CaseIterable, Identifiable {
     case none       = "None"
-    case moveToward = "Move →"
-    case moveAway   = "Move ←"
+    case moveToward    = "Move → (FW)"   // firmware: SetMultizoneEffect MOVE dir=0
+    case moveAway      = "Move ← (FW)"   // firmware: SetMultizoneEffect MOVE dir=1
+    case swMoveToward  = "Move →"         // software: per-tick gradient scroll toward zone 0
+    case swMoveAway    = "Move ←​"   // software: per-tick gradient scroll away from zone 0
     case breathe    = "Breathe"
     case pulse      = "Pulse"
     case strobe     = "Strobe"
@@ -38,8 +40,10 @@ enum ZoneEffect: String, Codable, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .none:       return "minus"
-        case .moveToward: return "arrow.right.circle.fill"
-        case .moveAway:   return "arrow.left.circle.fill"
+        case .moveToward:   return "arrow.right.circle.fill"
+        case .moveAway:     return "arrow.left.circle.fill"
+        case .swMoveToward: return "arrow.right.circle"
+        case .swMoveAway:   return "arrow.left.circle"
         case .breathe:    return "lungs.fill"
         case .pulse:      return "waveform.path.ecg"
         case .strobe:     return "bolt.fill"
@@ -59,6 +63,46 @@ enum ZoneEffect: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .moveToward, .moveAway: return true
         default:                     return false
+        }
+    }
+
+    var isSoftwareMove: Bool {
+        self == .swMoveToward || self == .swMoveAway
+    }
+
+    /// Human-readable description shown as a tooltip in the effect picker.
+    var description: String {
+        switch self {
+        case .none:
+            return "No effect. Light holds the zone colour steady."
+        case .moveToward:
+            return "Firmware MOVE effect. Colours scroll toward the controller end of the strip. Smooth on-device interpolation. Requires a multizone device."
+        case .moveAway:
+            return "Firmware MOVE effect. Colours scroll away from the controller end of the strip. Smooth on-device interpolation. Requires a multizone device."
+        case .swMoveToward:
+            return "Software MOVE effect. Brightness gradient scrolls toward zone 0 each tick. Speed can be modulated by HR/power. Multizone only."
+        case .swMoveAway:
+            return "Software MOVE effect. Brightness gradient scrolls away from zone 0 each tick. Speed can be modulated by HR/power. Multizone only."
+        case .breathe:
+            return "Software effect. Brightness slowly rises and falls (~0.5 Hz sine wave, 40–100%). Creates a calm, ambient pulse tied to the zone colour."
+        case .pulse:
+            return "Software effect. Fast brightness oscillation (~2.9 Hz, 10–100%). More urgent than Breathe — good for high-intensity zones."
+        case .strobe:
+            return "Software effect. Hard binary flash at ~4 Hz, alternating full brightness and 5%. High-impact visual alert for peak effort zones."
+        case .comet:
+            return "Software effect. A bright head sweeps along the strip with an exponential brightness tail behind it. Speed scales with zone intensity."
+        case .rainbow:
+            return "Software effect. Hue rotates continuously across all zones, completing one full colour wheel rotation every ~16 seconds."
+        case .police:
+            return "Software effect. Left half red, right half blue, swapping at ~2 Hz. Hard colour cut — no fade. Multizone only."
+        case .heartbeat:
+            return "Software effect. Lub-dub double-pulse brightness pattern mimicking a resting heartbeat (~15 BPM visual rhythm). Good for recovery zones."
+        case .lava:
+            return "Software effect. Five slow-moving brightness blobs drift along the strip at random speeds, creating a molten lava lamp appearance. Multizone only."
+        case .lightning:
+            return "Software effect. Random white brightness spikes flash across 1–3 zones every few ticks, then decay rapidly. Best on dark backgrounds. Multizone only."
+        case .vuMeter:
+            return "Software effect. Strip fills from one end proportional to current power or heart rate, colour-shifting green→yellow→red as intensity rises. Multizone only."
         }
     }
 }

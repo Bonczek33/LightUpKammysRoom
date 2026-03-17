@@ -11,6 +11,10 @@ import Charts
 struct ChartsPanel: View {
     @ObservedObject var charts: ChartsViewModel
     @State private var selectedChart: ChartType = .heartRate
+    /// Visible time window in seconds. Default 300s (5 min). Range 30s–600s.
+    @State private var visibleSeconds: Double = 300
+    private let minSeconds: Double = 30
+    private let maxSeconds: Double = 600
 
 
     enum DistributionMode: String, CaseIterable, Identifiable {
@@ -66,6 +70,29 @@ struct ChartsPanel: View {
 
                 Spacer()
 
+                // Zoom controls
+                HStack(spacing: 4) {
+                    Button(action: { visibleSeconds = min(maxSeconds, visibleSeconds * 1.5) }) {
+                        Image(systemName: "minus.magnifyingglass")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Zoom out — show more history")
+
+                    Text(visibleSeconds >= 60
+                         ? String(format: "%.0fm", visibleSeconds / 60)
+                         : String(format: "%.0fs", visibleSeconds))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 30)
+                        .monospacedDigit()
+
+                    Button(action: { visibleSeconds = max(minSeconds, visibleSeconds / 1.5) }) {
+                        Image(systemName: "plus.magnifyingglass")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Zoom in — show less history")
+                }
+
                 Button(action: { charts.clearAll() }) {
                     Label("Clear", systemImage: "trash")
                 }
@@ -88,15 +115,26 @@ struct ChartsPanel: View {
                         statsBar(for: selectedChart)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity)
                             .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
 
                         Divider()
 
                         chartView(for: selectedChart)
-                            .frame(height: 180)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding(16)
+                            .gesture(
+                                MagnifyGesture()
+                                    .onChanged { value in
+                                        let factor = 1.0 / value.magnification
+                                        let clamped = (visibleSeconds * factor)
+                                            .clamped(to: minSeconds...maxSeconds)
+                                        visibleSeconds = clamped
+                                    }
+                            )
                     }
                 }
+                .frame(maxHeight: .infinity)
 
                 // Right: histogram
                 ZStack {
@@ -122,16 +160,18 @@ struct ChartsPanel: View {
                             .help("Show distribution as seconds (sample count) or percent of total samples.")
                         }
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
                         .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
 
                         Divider()
 
                         histogramView(for: selectedChart)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding(16)
                     }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(height: 260)
         }
@@ -205,13 +245,23 @@ struct ChartsPanel: View {
             if charts.heartRateHistory.isEmpty {
                 emptyChartPlaceholder(icon: "heart.fill", message: "No heart rate data yet")
             } else {
-                Chart(charts.heartRateHistory) { point in
+                let windowHR = windowedData(charts.heartRateHistory)
+                let xMaxHR = Date()
+                let xMinHR = xMaxHR.addingTimeInterval(-visibleSeconds)
+                Chart(windowHR) { point in
                     LineMark(x: .value("Time", point.timestamp), y: .value("HR", point.value))
                         .foregroundStyle(Color.red.gradient)
                         .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.heartRateRange)
-                .timeSeriesXAxis()
+                .chartXScale(domain: xMinHR...xMaxHR)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .second, count: max(1, Int(visibleSeconds / 5)))) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel(format: .dateTime.minute().second(), centered: false)
+                    }
+                }
                 .intYAxis()
             }
 
@@ -219,13 +269,23 @@ struct ChartsPanel: View {
             if charts.powerHistory.isEmpty {
                 emptyChartPlaceholder(icon: "bolt.fill", message: "No power data yet")
             } else {
-                Chart(charts.powerHistory) { point in
+                let windowPower = windowedData(charts.powerHistory)
+                let xMaxPower = Date()
+                let xMinPower = xMaxPower.addingTimeInterval(-visibleSeconds)
+                Chart(windowPower) { point in
                     LineMark(x: .value("Time", point.timestamp), y: .value("Power", point.value))
                         .foregroundStyle(Color.orange.gradient)
                         .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.powerRange)
-                .timeSeriesXAxis()
+                .chartXScale(domain: xMinPower...xMaxPower)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .second, count: max(1, Int(visibleSeconds / 5)))) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel(format: .dateTime.minute().second(), centered: false)
+                    }
+                }
                 .intYAxis()
             }
 
@@ -233,13 +293,23 @@ struct ChartsPanel: View {
             if charts.cadenceHistory.isEmpty {
                 emptyChartPlaceholder(icon: "gauge.with.dots.needle.bottom.50percent", message: "No cadence data yet")
             } else {
-                Chart(charts.cadenceHistory) { point in
+                let windowCadence = windowedData(charts.cadenceHistory)
+                let xMaxCadence = Date()
+                let xMinCadence = xMaxCadence.addingTimeInterval(-visibleSeconds)
+                Chart(windowCadence) { point in
                     LineMark(x: .value("Time", point.timestamp), y: .value("Cadence", point.value))
                         .foregroundStyle(Color.blue.gradient)
                         .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.cadenceRange)
-                .timeSeriesXAxis()
+                .chartXScale(domain: xMinCadence...xMaxCadence)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .second, count: max(1, Int(visibleSeconds / 5)))) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel(format: .dateTime.minute().second(), centered: false)
+                    }
+                }
                 .intYAxis()
             }
 
@@ -247,13 +317,23 @@ struct ChartsPanel: View {
             if charts.powerToWeightHistory.isEmpty {
                 emptyChartPlaceholder(icon: "scalemass.fill", message: "No power/weight data yet")
             } else {
-                Chart(charts.powerToWeightHistory) { point in
+                let windowWkg = windowedData(charts.powerToWeightHistory)
+                let xMaxWkg = Date()
+                let xMinWkg = xMaxWkg.addingTimeInterval(-visibleSeconds)
+                Chart(windowWkg) { point in
                     LineMark(x: .value("Time", point.timestamp), y: .value("W/kg", point.value))
                         .foregroundStyle(Color.purple.gradient)
                         .interpolationMethod(.catmullRom)
                 }
                 .chartYScale(domain: charts.powerToWeightRange)
-                .timeSeriesXAxis()
+                .chartXScale(domain: xMinWkg...xMaxWkg)
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .second, count: max(1, Int(visibleSeconds / 5)))) { _ in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel(format: .dateTime.minute().second(), centered: false)
+                    }
+                }
                 .decimalYAxis()
             }
         }
@@ -328,6 +408,13 @@ struct ChartsPanel: View {
     }
 
     // MARK: - Helpers
+
+    /// Returns only the data points that fall within the current visible time window.
+    private func windowedData(_ data: [ChartsViewModel.DataPoint]) -> [ChartsViewModel.DataPoint] {
+        guard !data.isEmpty else { return data }
+        let cutoff = Date().addingTimeInterval(-visibleSeconds)
+        return data.filter { $0.timestamp >= cutoff }
+    }
 
     private func emptyChartPlaceholder(icon: String, message: String) -> some View {
         VStack(spacing: 12) {
@@ -542,3 +629,8 @@ private extension View {
     }
 }
 
+private extension Comparable {
+    func clamped(to limits: ClosedRange<Self>) -> Self {
+        min(max(self, limits.lowerBound), limits.upperBound)
+    }
+}
