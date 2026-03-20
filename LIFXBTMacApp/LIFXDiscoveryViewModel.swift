@@ -6,6 +6,12 @@
 //
 
 import Foundation
+
+/// Safe Double → UInt16 conversion. Clamps to 0...65535 before truncating.
+@inline(__always)
+private func u16(_ v: Double) -> UInt16 {
+    UInt16(max(0.0, min(65535.0, v.isNaN ? 0 : v)))
+}
 import SwiftUI
 import Network
 
@@ -357,6 +363,19 @@ final class LIFXDiscoveryViewModel: ObservableObject {
         applyPaletteIndexToSelected(paletteIndex, durationMs: durationMs, brightness: brightness, quiet: quiet)
     }
 
+    /// Like applyAutoPaletteIndexToSelected but restricted to multizone devices only.
+    /// Used by software effects (breathe, pulse, strobe, heartbeat) so bulbs in a
+    /// mixed selection receive the normal colour-send path instead of effect brightness.
+    func applyEffectBrightnessToMultizone(_ paletteIndex: Int, durationMs: UInt32,
+                                          brightness: UInt16, quiet: Bool = false) {
+        let multizoneIDs = selectedIDs.filter { deviceTypeByID[$0]?.isMultizone == true }
+        guard !multizoneIDs.isEmpty else { return }
+        withSelectedIDs(multizoneIDs) {
+            applyPaletteIndexToSelected(paletteIndex, durationMs: durationMs,
+                                        brightness: brightness, quiet: quiet)
+        }
+    }
+
     /// Returns the zone count for the first selected multizone light, or nil.
     func zoneCountForSelected() -> Int? {
         lights.first { selectedIDs.contains($0.id) && (deviceTypeByID[$0.id]?.isMultizone == true) }
@@ -377,9 +396,9 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 var dist = fmod(Double(i) - headPosition + Double(zones), Double(zones))
                 if dist > Double(zones) / 2 { dist = Double(zones) - dist } // shortest arc
                 let decay = exp(-dist * 0.28)  // tail length ~10 zones
-                let bri = UInt16(max(0.03, decay) * 65535)
+                let bri = u16(max(0.03, min(1.0, decay)) * 65535)
                 // Head zone gets boosted white-shifted (higher kelvin feel via reduced sat)
-                let sat = dist < 2 ? UInt16(Double(p.satU16) * max(0.3, 1.0 - (2 - dist) * 0.35)) : p.satU16
+                let sat = dist < 2 ? u16(Double(p.satU16) * max(0.3, 1.0 - (2 - dist) * 0.35)) : p.satU16
                 colors.append((p.hueU16, sat, bri, p.kelvin))
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
@@ -396,7 +415,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
             for i in 0..<min(zones, 82) {
                 // Spread a full hue rotation across the strip, shifted by offset each tick
                 let hueShift = (Double(i) / Double(zones) + offset)
-                let hueU16 = UInt16((fmod(hueShift, 1.0)) * 65535)
+                let hueU16 = u16(fmod(hueShift, 1.0) * 65535)
                 colors.append((hueU16, 65535, 52428, 3500))  // full sat, ~80% bri, neutral kelvin
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
@@ -423,7 +442,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 let phase = fmod(shifted, period) / period   // 0..1 sawtooth
                 // Triangle wave: bright at 0, dark at 0.5, bright at 1
                 let t = 1.0 - abs(phase - 0.5) * 2.0
-                let bri = UInt16(max(0.04, t * t) * 65535)  // squared for sharper peak
+                let bri = u16(max(0.04, t * t) * 65535)  // squared for sharper peak
                 colors.append((p.hueU16, p.satU16, bri, p.kelvin))
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id,
@@ -468,7 +487,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 }
             }
             let colors: [(h: UInt16, s: UInt16, b: UInt16, k: UInt16)] = brightness.map { bri in
-                (p.hueU16, p.satU16, UInt16(bri * 65535), p.kelvin)
+                (p.hueU16, p.satU16, u16(bri * 65535), p.kelvin)
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
         }
@@ -486,9 +505,9 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 Array(repeating: (p.hueU16, p.satU16, 3277, p.kelvin), count: min(zones, 82))
             for strike in strikes {
                 guard strike.zone < colors.count else { continue }
-                let bri = UInt16(min(1.0, strike.bri) * 65535)
+                let bri = u16(min(1.0, strike.bri) * 65535)
                 // White flash: desaturate toward white at full brightness
-                let sat = UInt16(Double(p.satU16) * (1.0 - strike.bri * 0.85))
+                let sat = u16(Double(p.satU16) * (1.0 - strike.bri * 0.85))
                 colors[strike.zone] = (p.hueU16, sat, bri, 6500)  // 6500K = cool white
             }
             control.setExtendedColorZonesArray(ip: light.ip, targetHex: light.id, colors: colors)
@@ -509,7 +528,7 @@ final class LIFXDiscoveryViewModel: ObservableObject {
                 if i < fillCount {
                     // Colour gradient: green→yellow→red as fill increases
                     let hueShift = (1.0 - fillRatio) * 0.33   // 0.33=green, 0=red
-                    let hue = UInt16(fmod(hueShift, 1.0) * 65535)
+                    let hue = u16(fmod(hueShift, 1.0) * 65535)
                     colors.append((hue, 65535, 52428, p.kelvin))
                 } else {
                     colors.append((p.hueU16, p.satU16, 3277, p.kelvin))  // dim

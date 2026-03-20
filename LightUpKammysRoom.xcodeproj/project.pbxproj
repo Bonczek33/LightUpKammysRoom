@@ -39,6 +39,7 @@
 		C26837702F3FFD0100A43AE6 /* MenuBarLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C268376F2F3FFD0100A43AE6 /* MenuBarLightsView.swift */; };
 		C29ED3372F455C010002B4BE /* ANTPlusSensorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29ED3362F455C010002B4BE /* ANTPlusSensorViewModel.swift */; };
 		C2C7C7372F67BB9600076FDD /* AutoEffectsSettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C7C7362F67BB9600076FDD /* AutoEffectsSettingsTab.swift */; };
+		C2C7C7382F69C3DE00076FDD /* BuildNumber.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = C29ED3302F44C3CD0002B4BE /* BuildNumber.xcconfig */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -218,7 +219,7 @@
 				96253C762F32857A00E17BB2 /* Sources */,
 				96253C772F32857A00E17BB2 /* Frameworks */,
 				96253C782F32857A00E17BB2 /* Resources */,
-				96253CC82F3287F700E17BB2 /* ShellScript */,
+				96253CC82F3287F700E17BB2 /* Run Script */,
 			);
 			buildRules = (
 			);
@@ -313,6 +314,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2C7C7382F69C3DE00076FDD /* BuildNumber.xcconfig in Resources */,
 				96253C852F32857B00E17BB2 /* Preview Assets.xcassets in Resources */,
 				96253C822F32857B00E17BB2 /* Assets.xcassets in Resources */,
 			);
@@ -335,7 +337,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		96253CC82F3287F700E17BB2 /* ShellScript */ = {
+		96253CC82F3287F700E17BB2 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -345,6 +347,7 @@
 			);
 			inputPaths = (
 			);
+			name = "Run Script";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -557,7 +560,6 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
 				DEVELOPMENT_TEAM = ZN34UP654Z;
@@ -606,7 +608,6 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"LIFXBTMacApp/Preview Content\"";
 				DEVELOPMENT_TEAM = ZN34UP654Z;

@@ -6,6 +6,12 @@
 //
 
 import Foundation
+
+/// Safe Double → UInt16 conversion. Clamps to 0...65535 before truncating.
+@inline(__always)
+private func u16(_ v: Double) -> UInt16 {
+    UInt16(max(0.0, min(65535.0, v.isNaN ? 0 : v)))
+}
 import SwiftUI
 
 @MainActor
@@ -396,9 +402,13 @@ final class AutoColorController: ObservableObject {
         }
 
         // ── Software effects ─────────────────────────────────────────────────────
-        // All software effects run every tick (not just zone entry) and return early
-        // so the normal colour-send path is bypassed.
-        if !isZoneEntry {
+        // Software effects only apply to multizone devices (Neon, Lightstrip, etc.).
+        // If only bulbs are selected, skip the effects block entirely — bulbs receive
+        // the normal colour-send path below regardless of the zone's effect setting.
+        let hasMultizoneSelected = lifx.lights.contains {
+            lifx.selectedIDs.contains($0.id) && (lifx.deviceTypeByID[$0.id]?.isMultizone == true)
+        }
+        if !isZoneEntry && hasMultizoneSelected {
             switch zone.effect {
 
             case .breathe:
@@ -406,8 +416,8 @@ final class AutoColorController: ObservableObject {
                 effectPhase += 0.13 * effectSpeedRatio(zone: zone)
                 if effectPhase > 2 * .pi { effectPhase -= 2 * .pi }
                 let bt = (sin(effectPhase) + 1.0) / 2.0
-                let breatheBri = UInt16((0.40 + bt * 0.60) * 65535)
-                lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 400, brightness: breatheBri, quiet: true)
+                let breatheBri = u16((0.40 + bt * 0.60) * 65535)
+                lifx.applyEffectBrightnessToMultizone(zone.paletteIndex, durationMs: 400, brightness: breatheBri, quiet: true)
                 lastSentBrightness = breatheBri; lastSentT = now
 
             case .pulse:
@@ -415,8 +425,8 @@ final class AutoColorController: ObservableObject {
                 effectPhase += 0.45 * effectSpeedRatio(zone: zone)
                 if effectPhase > 2 * .pi { effectPhase -= 2 * .pi }
                 let pt = (sin(effectPhase) + 1.0) / 2.0
-                let pulseBri = UInt16((0.10 + pt * 0.90) * 65535)
-                lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 200, brightness: pulseBri, quiet: true)
+                let pulseBri = u16((0.10 + pt * 0.90) * 65535)
+                lifx.applyEffectBrightnessToMultizone(zone.paletteIndex, durationMs: 200, brightness: pulseBri, quiet: true)
                 lastSentBrightness = pulseBri; lastSentT = now
 
             case .strobe:
@@ -424,7 +434,7 @@ final class AutoColorController: ObservableObject {
                 // Accumulate fractional phase; only flip when it crosses an integer.
                 effectPhase += effectSpeedRatio(zone: zone)
                 let strobeBri: UInt16 = Int(effectPhase) % 2 == 0 ? 65535 : 3277  // 100% / 5%
-                lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 0, brightness: strobeBri, quiet: true)
+                lifx.applyEffectBrightnessToMultizone(zone.paletteIndex, durationMs: 0, brightness: strobeBri, quiet: true)
                 lastSentBrightness = strobeBri; lastSentT = now
 
             case .comet:
@@ -463,7 +473,7 @@ final class AutoColorController: ObservableObject {
                 case 5:     hbBri = 8191          // decay
                 default:    hbBri = 3277          // rest at 5%
                 }
-                lifx.applyAutoPaletteIndexToSelected(zone.paletteIndex, durationMs: 0, brightness: hbBri, quiet: true)
+                lifx.applyEffectBrightnessToMultizone(zone.paletteIndex, durationMs: 0, brightness: hbBri, quiet: true)
                 lastSentBrightness = hbBri; lastSentT = now
 
             case .lava:
@@ -610,12 +620,12 @@ final class AutoColorController: ObservableObject {
             if modulateIntensityWithHR, let hrBPM = activeHR {
                 let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
-                return UInt16(max(0, min(65535, intensity * 65535.0)))
+                return u16(intensity * 65535.0)
             } else if modulateIntensityWithPower, let powerRatio = smoothedPowerRatioForTick {
                 // Reuse the already-smoothed ratio from tick() — no second push
                 let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
-                return UInt16(max(0, min(65535, intensity * 65535.0)))
+                return u16(intensity * 65535.0)
             }
 
         case .heartRate:
@@ -627,11 +637,11 @@ final class AutoColorController: ObservableObject {
                 let powerRatio = Double(wRaw) / Double(ftpSafe)
                 let intensity = calculatePowerIntensityModulation(powerRatio: powerRatio, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
-                return UInt16(max(0, min(65535, intensity * 65535.0)))
+                return u16(intensity * 65535.0)
             } else if modulateIntensityWithHR, let hrBPM = activeHR {
                 let intensity = calculateHRIntensityModulation(hrBPM: hrBPM, zone: zone)
                 appliedIntensityPercent = max(0.0, min(100.0, intensity * 100.0))
-                return UInt16(max(0, min(65535, intensity * 65535.0)))
+                return u16(intensity * 65535.0)
             }
 
         case .off:
@@ -725,7 +735,7 @@ final class AutoColorController: ObservableObject {
                 if autoEffectPhase > 2 * .pi { autoEffectPhase -= 2 * .pi }
                 let bt = (sin(autoEffectPhase) + 1.0) / 2.0
                 lifx.applyAutoPaletteIndexToSelected(paletteIndex, durationMs: 400,
-                    brightness: UInt16((0.05 + bt * 0.95) * 65535), quiet: true)
+                    brightness: u16((0.05 + bt * 0.95) * 65535), quiet: true)
 
             case .pulse:
                 // Full 100% ceiling, near-off floor
@@ -733,7 +743,7 @@ final class AutoColorController: ObservableObject {
                 if autoEffectPhase > 2 * .pi { autoEffectPhase -= 2 * .pi }
                 let pt = (sin(autoEffectPhase) + 1.0) / 2.0
                 lifx.applyAutoPaletteIndexToSelected(paletteIndex, durationMs: 200,
-                    brightness: UInt16((0.05 + pt * 0.95) * 65535), quiet: true)
+                    brightness: u16((0.05 + pt * 0.95) * 65535), quiet: true)
 
             case .comet:
                 autoEffectCometPos = fmod(autoEffectCometPos + 1.5, Double(zoneCount))
@@ -742,7 +752,7 @@ final class AutoColorController: ObservableObject {
 
             case .rainbow:
                 autoEffectRainbowOffset = fmod(autoEffectRainbowOffset + 0.016, 1.0)
-                let baseHue = UInt16(0.6 * 65535)
+                let baseHue = u16(0.6 * 65535)
                 lifx.setRainbowEffect(baseHueU16: baseHue, zoneCount: zoneCount,
                                       offset: autoEffectRainbowOffset)
 

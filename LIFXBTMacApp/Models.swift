@@ -54,8 +54,8 @@ enum LIFXDeviceType: String, Codable, CaseIterable {
     // Product registry — source: https://github.com/LIFX/products/blob/master/products.json
     static func from(productID: UInt32) -> LIFXDeviceType? {
         switch productID {
-        // Multizone: LIFX Z / Beam / Lightstrip
-        case 31, 32, 38, 55, 81, 82:            return .lightstrip
+        // Multizone: LIFX Z (31=Z, 32=Z2, 38=Z, 55=Z, 81=Z, 82=Z, 117=Z US, 118=Z Intl) / Beam / Lightstrip
+        case 31, 32, 38, 55, 81, 82, 117, 118:  return .lightstrip
         // Multizone: LIFX Neon
         case 96, 141, 142, 160, 161, 162, 163:  return .neon
         // Single-zone bulbs (non-exhaustive — add new PIDs as needed)
@@ -64,7 +64,7 @@ enum LIFXDeviceType: String, Codable, CaseIterable {
              87, 88, 89, 90, 91, 92, 93, 94, 95,
              97, 98, 99, 100, 101, 102, 103, 104,
              105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
-             115, 116, 117, 118, 119, 120, 121, 122,
+             115, 116, 119, 120, 121, 122,
              181, 182:                           return .bulb
         default:
             print("⚠️ [LIFX] UNKNOWN PID \(productID) — defaulting to Bulb. Add to LIFXDeviceType.from()")
